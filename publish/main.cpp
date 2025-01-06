@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   }
 
   EventNotifier notifier;
-  Publisher publisher(enableBiast, enableDcc, args.at(0));
+  Publisher publisher(deviceStr, enableBiast, enableDcc, args.at(0));
 
   QObject::connect(&notifier, SIGNAL(interrupt()), &publisher, SLOT(handleInterrupt()));
   QObject::connect(&publisher, SIGNAL(completed()), &core, SLOT(quit()));
