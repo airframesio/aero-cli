@@ -26,6 +26,8 @@ public:
           bool disableReassembly, QObject *parent = nullptr);
   ~Decoder();
 
+  bool isRunning() const { return running; }
+  
 private:
   void parseForwarder(const QString &raw);
   void publisherConsumer();

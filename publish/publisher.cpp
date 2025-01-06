@@ -16,13 +16,17 @@ Publisher::Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
   this->enableBiast = enableBiast;
   this->enableDcc = enableDcc;
 
+  running = false;
+
   if (!loadSettings(settingsPath)) {
-    FATAL("[ERROR] failed to parse and load settings");
+    CRIT("[ERROR] failed to parse and load settings");
+    return;
   }
 
   device = SoapySDR::Device::make(deviceStr.toStdString());
   if (device == nullptr) {
-    FATAL("[ERROR] failed to find device: %s", deviceStr.toStdString().c_str());
+    CRIT("[ERROR] failed to find device: %s", deviceStr.toStdString().c_str());
+    return;
   }
 
   device->setGainMode(SOAPY_SDR_RX, 0, 1);
@@ -31,6 +35,8 @@ Publisher::Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
   device->setSampleRate(SOAPY_SDR_RX, 0, Fs);
   device->setDCOffsetMode(SOAPY_SDR_RX, 0, enableDcc);
   device->writeSetting("biastee", enableBiast ? "true" : "false");
+
+  running = true;
 }
 
 Publisher::~Publisher() {
@@ -221,7 +227,6 @@ bool Publisher::loadSettings(const QString &settingsPath) {
 }
 
 void Publisher::run() {
-  running = true;
   mainReader = QtConcurrent::run([this] { return readerThread(); });
 }
 
@@ -235,6 +240,8 @@ void Publisher::readerThread() {
   SoapySDR::Kwargs streamArgs{{"buffers", std::to_string(24)},
                               {"bufflen", std::to_string(buflen)}};
 
+  if (!running) goto Exit;
+  
   if (samplesBuf == nullptr) {
     CRIT("Memory allocation failed for samplesBuf: out of memory when "
          "attempting to allocate %lu bytes",

@@ -70,12 +70,16 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
   this->disableReassembly = disableReassembly;
   this->format = parseOutputFormat(format);
 
+  running = false;
+  
   if (!validBitRates.contains(this->bitRate)) {
-    FATAL("Unsupported bit rate: %d", this->bitRate);
+    CRIT("Unsupported bit rate: %d", this->bitRate);
+    return;
   }
 
   if (this->format == OutputFormat::None) {
-    FATAL("Invalid output format provided: %s", format.toStdString().c_str());
+    CRIT("Invalid output format provided: %s", format.toStdString().c_str());
+    return;
   }
 
   if (!rawForwarders.isEmpty()) {
@@ -84,13 +88,17 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
 
   zmqContext = ::zmq_ctx_new();
   if (zmqContext == nullptr) {
-    FATAL("Failed to create new ZeroMQ context, error code = %d", zmq_errno());
+    CRIT("Failed to create new ZeroMQ context, error code = %d", zmq_errno());
+    return;
   }
 
   zmqSub = ::zmq_socket(zmqContext, ZMQ_SUB);
   if (zmqSub == nullptr) {
-    FATAL("Failed to create ZeroMQ socket, error code = %d", zmq_errno());
+    CRIT("Failed to create ZeroMQ socket, error code = %d", zmq_errno());
+    return;
   }
+
+  running = true;
 }
 
 Decoder::~Decoder() {
@@ -104,7 +112,6 @@ Decoder::~Decoder() {
 }
 
 void Decoder::run() {
-  running = true;
   consumerThread = QtConcurrent::run([this] { publisherConsumer(); });
 }
 
@@ -129,6 +136,8 @@ void Decoder::publisherConsumer() {
   unsigned char rateBuf[4] = {0};
   char *samplesBuf = nullptr;
 
+  if (!running) goto Exit;
+  
   samplesBuf = (char *)::malloc(bufSize * sizeof(char));
   if (samplesBuf == nullptr) {
     CRIT("Failed to allocate samples buffer for ZeroMQ");

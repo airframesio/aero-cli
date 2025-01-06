@@ -17,6 +17,8 @@ public:
             const QString &settingsPath, QObject *parent = nullptr);
   ~Publisher();
 
+  bool isRunning() const { return running; }
+  
 private:
   bool loadSettings(const QString &settingsPath);
   void readerThread();
