@@ -17,6 +17,21 @@ Publisher::Publisher(bool enableBiast, bool enableDcc,
 
 Publisher::~Publisher() {}
 
-bool Publisher::loadSettings(const QString &settingsPath) { return true; }
+bool Publisher::loadSettings(const QString &settingsPath) {
+  return true;
+}
 
-void Publisher::run() { emit completed(); }
+void Publisher::run() {
+  running = true;
+  mainReader = QtConcurrent::run([this] { readerThread(); });
+}
+
+void Publisher::readerThread() {
+  // TODO: do stuff
+  
+  emit completed();
+}
+
+void Publisher::handleInterrupt() {
+  running = false;
+}

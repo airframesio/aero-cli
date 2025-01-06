@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <SoapySDR/Logger.hpp>
 
+#include "notifier.h"
 #include "publisher.h"
 
 
@@ -47,10 +48,14 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  EventNotifier notifier;
   Publisher publisher(enableBiast, enableDcc, args.at(0));
 
+  QObject::connect(&notifier, SIGNAL(interrupt()), &publisher, SLOT(handleInterrupt()));
   QObject::connect(&publisher, SIGNAL(completed()), &core, SLOT(quit()));
   QTimer::singleShot(0, &publisher, SLOT(run()));
 
+  EventNotifier::setup();
+  
   return core.exec();
 }
