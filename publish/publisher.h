@@ -1,7 +1,6 @@
 #ifndef PUBLISHER_H
 #define PUBLISHER_H
 
-#include <QDebug>
 #include <QList>
 #include <QObject>
 #include <QSocketNotifier>
@@ -52,8 +51,10 @@ private:
 public slots:
   void run();
 
+  void handleHup();
   void handleInterrupt();
-
+  void handleTerm();
+  
 signals:
   void completed();
 };

@@ -4,6 +4,6 @@ TBA
 
 ## Requirements
 * SoapySDR 0.8.1
-* ZeroMQ
+* ZeroMQ 4.3.5
 * libcorrect
-* QT 5.15
+* QT 6.4+

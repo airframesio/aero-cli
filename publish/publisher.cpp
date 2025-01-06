@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "logger.h"
 #include "publisher.h"
 
 Publisher::Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
@@ -16,12 +17,12 @@ Publisher::Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
   this->enableDcc = enableDcc;
 
   if (!loadSettings(settingsPath)) {
-    qFatal("[ERROR] failed to parse and load settings");
+    FATAL("[ERROR] failed to parse and load settings");
   }
 
   device = SoapySDR::Device::make(deviceStr.toStdString());
   if (device == nullptr) {
-    qFatal("[ERROR] failed to find device: %s", deviceStr.toStdString().c_str());
+    FATAL("[ERROR] failed to find device: %s", deviceStr.toStdString().c_str());
   }
 
   device->setGainMode(SOAPY_SDR_RX, 0, 1);
@@ -35,9 +36,9 @@ Publisher::Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
 Publisher::~Publisher() {
   if (stream != nullptr) {
     device->deactivateStream(stream);
-    device->closeStream(stream);  
+    device->closeStream(stream);
   }
-  
+
   if (device != nullptr) {
     device->writeSetting("biastee", "false");
     SoapySDR::Device::unmake(device);
@@ -47,7 +48,8 @@ Publisher::~Publisher() {
 bool Publisher::loadSettings(const QString &settingsPath) {
   QFileInfo info(settingsPath);
   if (!info.exists() || !info.isFile()) {
-    qCritical() << "";
+    CRIT("Provided settings file path either doesn't exist or isn't a file: %s",
+         settingsPath.toStdString().c_str());
     return false;
   }
 
@@ -55,12 +57,13 @@ bool Publisher::loadSettings(const QString &settingsPath) {
 
   Fs = settings.value("sample_rate").toInt();
   if (Fs == 0) {
-    qCritical() << "";
+    CRIT("Provided sample rate in settings file either doesn't exist or isn't "
+         "an integer");
     return false;
   }
 
   if (!validSampleRates.contains(Fs)) {
-    qCritical() << "";
+    CRIT("Provided sample rate is not supported: %d", Fs);
     return false;
   }
 
@@ -73,7 +76,8 @@ bool Publisher::loadSettings(const QString &settingsPath) {
   QString auto_start_tuner_serial =
       settings.value("auto_start_tuner_serial").toString();
   tuner_idx = settings.value("auto_start_tuner_idx").toInt();
-  enableBiast = enableBiast || (settings.value("auto_start_biast").toInt() == 1);
+  enableBiast =
+      enableBiast || (settings.value("auto_start_biast").toInt() == 1);
 
   int gain = settings.value("tuner_gain").toInt();
   int remote_gain_idx = settings.value("remote_rtl_gain_idx").toInt();
@@ -225,37 +229,42 @@ void Publisher::readerThread() {
   int flags = 0;
   int samplesRead = 0;
   long long timeNs = 0;
-  float *samplesBuf = (float *) malloc(buflen * sizeof(float));
+  float *samplesBuf = (float *)malloc(buflen * sizeof(float));
 
-  void *sampleBuffers[] = { samplesBuf };
-  SoapySDR::Kwargs streamArgs{{"buffers", std::to_string(24)}, {"bufflen", std::to_string(buflen)}};
+  void *sampleBuffers[] = {samplesBuf};
+  SoapySDR::Kwargs streamArgs{{"buffers", std::to_string(24)},
+                              {"bufflen", std::to_string(buflen)}};
 
   if (samplesBuf == nullptr) {
-    qCritical() << "";
+    CRIT("Memory allocation failed for samplesBuf: out of memory when "
+         "attempting to allocate %lu bytes",
+         buflen * sizeof(float));
     goto Exit;
   }
 
-  stream = device->setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, std::vector<size_t>(), streamArgs);
+  stream = device->setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32,
+                               std::vector<size_t>(), streamArgs);
   if (stream == nullptr) {
-    qCritical() << "";
+    CRIT("SoapySDR could not setup stream");
     goto Exit;
   }
 
   if (device->activateStream(stream)) {
-    qCritical() << "";
+    CRIT("SoapySDR could not activate stream");
     goto Exit;
   }
 
   while (running) {
-    samplesRead = device->readStream(stream, sampleBuffers, buflen, flags, timeNs, 1e7);
+    samplesRead =
+        device->readStream(stream, sampleBuffers, buflen, flags, timeNs, 1e7);
     if (samplesRead <= 0) {
-      qCritical() << "";
+      CRIT("SoapySDR could not read stream from SDR");
       break;
     }
 
     demodData(samplesBuf, samplesRead << 1);
   }
-  
+
 Exit:
   if (samplesBuf != nullptr) {
     free(samplesBuf);
@@ -287,6 +296,21 @@ void Publisher::demodData(const float *data, int len) {
   }
 }
 
+
+void Publisher::handleHup() {
+  DBG("Got SIGHUP signal from EventNotifier");
+  
+  // TODO: do debug dump for debugging?
+  
+  running = false;
+}
+
 void Publisher::handleInterrupt() {
+  DBG("Got SIGINT signal from EventNotifier");
+  running = false; 
+}
+
+void Publisher::handleTerm() {
+  DBG("Got SIGTERM signal from EventNotifier");
   running = false;
 }
