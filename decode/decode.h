@@ -13,7 +13,7 @@ struct ForwardTarget {
   OutputFormat format;
 
   ForwardTarget(const QUrl &url, OutputFormat fmt) : target(url), format(fmt) {}
-  
+
   static ForwardTarget *fromRaw(const QString &raw);
 };
 
@@ -22,22 +22,26 @@ class Decoder : public QObject {
 
 public:
   Decoder(const QString &publisher, const QString &topic, const QString &format,
-          const QString &rawForwarders, bool disableReassembly,
-          QObject *parent = nullptr);
+          int bitRate, bool burstMode, const QString &rawForwarders,
+          bool disableReassembly, QObject *parent = nullptr);
   ~Decoder();
- 
+
 private:
   void parseForwarder(const QString &raw);
   void publisherConsumer();
 
+  const QList<int> validBitRates = {600, 1200, 10500};
+  
   QFuture<void> consumerThread;
   bool running;
 
   void *volatile zmqContext;
   void *volatile zmqSub;
-  
-  bool disableReassembly;
 
+  bool burstMode;
+  bool disableReassembly;
+  int bitRate;
+  
   QString publisher;
   QString topic;
   OutputFormat format;
@@ -53,6 +57,7 @@ public slots:
 
 signals:
   void completed();
+  void audioReceived(const QByteArray &, quint32);
 };
 
 #endif

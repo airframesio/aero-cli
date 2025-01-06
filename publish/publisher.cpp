@@ -229,7 +229,7 @@ void Publisher::readerThread() {
   int flags = 0;
   int samplesRead = 0;
   long long timeNs = 0;
-  float *samplesBuf = (float *)malloc(buflen * sizeof(float));
+  float *samplesBuf = (float *) ::malloc(buflen * sizeof(float));
 
   void *sampleBuffers[] = {samplesBuf};
   SoapySDR::Kwargs streamArgs{{"buffers", std::to_string(24)},
@@ -267,7 +267,7 @@ void Publisher::readerThread() {
 
 Exit:
   if (samplesBuf != nullptr) {
-    free(samplesBuf);
+    ::free(samplesBuf);
   }
 
   emit completed();
@@ -301,8 +301,6 @@ void Publisher::handleHup() {
   DBG("Got SIGHUP signal from EventNotifier");
   
   // TODO: do debug dump for debugging?
-  
-  running = false;
 }
 
 void Publisher::handleInterrupt() {

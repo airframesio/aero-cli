@@ -59,13 +59,20 @@ ForwardTarget *ForwardTarget::fromRaw(const QString &raw) {
 }
 
 Decoder::Decoder(const QString &publisher, const QString &topic,
-                 const QString &format, const QString &rawForwarders,
-                 bool disableReassembly, QObject *parent)
+                 const QString &format, int bitRate, bool burstMode,
+                 const QString &rawForwarders, bool disableReassembly,
+                 QObject *parent)
     : QObject(parent) {
   this->publisher = publisher;
   this->topic = topic;
+  this->bitRate = bitRate;
+  this->burstMode = burstMode;
   this->disableReassembly = disableReassembly;
   this->format = parseOutputFormat(format);
+
+  if (!validBitRates.contains(this->bitRate)) {
+    FATAL("Unsupported bit rate: %d", this->bitRate);
+  }
 
   if (this->format == OutputFormat::None) {
     FATAL("Invalid output format provided: %s", format.toStdString().c_str());
@@ -73,6 +80,16 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
 
   if (!rawForwarders.isEmpty()) {
     parseForwarder(rawForwarders);
+  }
+
+  zmqContext = ::zmq_ctx_new();
+  if (zmqContext == nullptr) {
+    FATAL("Failed to create new ZeroMQ context, error code = %d", zmq_errno());
+  }
+
+  zmqSub = ::zmq_socket(zmqContext, ZMQ_SUB);
+  if (zmqSub == nullptr) {
+    FATAL("Failed to create ZeroMQ socket, error code = %d", zmq_errno());
   }
 }
 
@@ -104,25 +121,85 @@ void Decoder::parseForwarder(const QString &raw) {
 }
 
 void Decoder::publisherConsumer() {
-  while (running) {
-    
+  int bufSize = 192000;
+  int recvSize = 0;
+  int status = 0;
+  quint32 sampleRate = 48000;
+
+  unsigned char rateBuf[4] = {0};
+  char *samplesBuf = nullptr;
+
+  samplesBuf = (char *)::malloc(bufSize * sizeof(char));
+  if (samplesBuf == nullptr) {
+    CRIT("Failed to allocate samples buffer for ZeroMQ");
+    goto Exit;
   }
-  
-  emit completed();  
+
+  status = ::zmq_connect(zmqSub, publisher.toStdString().c_str());
+  if (status == -1) {
+    CRIT("Failed to connect to publisher, error code: %d; is aero-publish or "
+         "SDRReceiver running?",
+         status);
+    goto Exit;
+  }
+
+  status =
+      ::zmq_setsockopt(zmqSub, ZMQ_SUBSCRIBE, topic.toStdString().c_str(), 5);
+  if (status == -1) {
+    CRIT("Failed to subscribe to %s; error code = %d",
+         topic.toStdString().c_str(), zmq_errno());
+    goto Exit;
+  }
+
+  while (running) {
+    while (((recvSize = ::zmq_recv(zmqSub, nullptr, 0, ZMQ_DONTWAIT)) < 0) &&
+           running) {
+      ::usleep(10000);
+    }
+
+    if (!running)
+      break;
+
+    recvSize = ::zmq_recv(zmqSub, rateBuf, sizeof(rateBuf), ZMQ_DONTWAIT);
+    if (recvSize != sizeof(rateBuf)) {
+      continue;
+    }
+
+    if (!running)
+      break;
+
+    ::memcpy(&sampleRate, rateBuf, sizeof(sampleRate));
+
+    recvSize = ::zmq_recv(zmqSub, samplesBuf, bufSize, ZMQ_DONTWAIT);
+    if (!running)
+      break;
+
+    if (recvSize >= 0) {
+      QByteArray qdata(samplesBuf, recvSize);
+      emit audioReceived(samplesBuf, sampleRate);
+    }
+  }
+
+Exit:
+  if (samplesBuf != nullptr) {
+    ::free(samplesBuf);
+  }
+
+  emit completed();
 }
 
 void Decoder::handleHup() {
-  DBG("");
+  DBG("Got SIGHUP signal from EventNotifier");
 
-  // TODO:
+  // TODO: do debug dump?
 }
 
 void Decoder::handleInterrupt() {
-  DBG("");
+  DBG("Got SIGINT signal from EventNotifier");
   running = false;
 }
 
 void Decoder::handleTerminate() {
-  DBG("");
+  DBG("Got SIGTERM signal from EventNotifier");
   running = false;
 }

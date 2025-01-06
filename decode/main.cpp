@@ -18,6 +18,9 @@ int main(int argc, char *argv[]) {
       "into SatCom ACARS messages");
   parser.addHelpOption();
   parser.addOption(QCommandLineOption(
+      QStringList() << "b" << "bit-rate",
+      "Signal bit rate, valid rates: 600, 1200, 10500", "bit-rate"));
+  parser.addOption(QCommandLineOption(
       QStringList() << "f" << "fwd",
       "Forward decoded ACARS messages to a list of servers and formats, see "
       "--format for allowable formats; example: FORMAT1=URL1,FORMAT2=URL2,...",
@@ -30,6 +33,7 @@ int main(int argc, char *argv[]) {
                                       "ZeroMQ VFO topic name", "topic"));
   parser.addOption(QCommandLineOption(QStringList() << "v" << "verbose",
                                       "Show verbose output"));
+  parser.addOption(QCommandLineOption("burst", "Enable burst mode (C-band)"));
   parser.addOption(
       QCommandLineOption("disable-reassembly", "Disable frame reassembly"));
   parser.addOption(
@@ -46,9 +50,12 @@ int main(int argc, char *argv[]) {
   const QString rawForwarders = parser.value("fwd");
   const QString publisher = parser.value("publisher");
   const QString topic = parser.value("topic");
-  
+
   QString format = parser.value("format");
 
+  int bitRate = parser.value("bit-rate").toInt();
+
+  bool burstMode = parser.isSet("burst");
   bool disableReassembly = parser.isSet("disable-reassembly");
 
   if (publisher.isEmpty()) {
@@ -65,9 +72,10 @@ int main(int argc, char *argv[]) {
   if (format.isEmpty()) {
     format = "text";
   }
-  
+
   EventNotifier notifier;
-  Decoder decoder(publisher, topic, format, rawForwarders, disableReassembly);
+  Decoder decoder(publisher, topic, format, bitRate, burstMode, rawForwarders,
+                  disableReassembly);
 
   QObject::connect(&notifier, SIGNAL(hangup()), &decoder, SLOT(handleHup()));
   QObject::connect(&notifier, SIGNAL(interrupt()), &decoder,
