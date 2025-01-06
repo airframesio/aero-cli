@@ -2,6 +2,7 @@
 #define PUBLISHER_H
 
 #include <QDebug>
+#include <QList>
 #include <QObject>
 #include <QSocketNotifier>
 #include <QtConcurrent>
@@ -20,9 +21,12 @@ public:
 private:
   bool loadSettings(const QString &settingsPath);
   void readerThread();
-
+  void demodData(const float *data, int len);
+  
+  const QList<int> validSampleRates = {288000, 1536000, 1920000};
+  
   QFuture<void> mainReader;
-
+  
   bool running;
   bool enableBiast;
   bool enableDcc;
@@ -43,7 +47,8 @@ private:
   std::vector<cpx_typef> demodSamples;
 
   SoapySDR::Device *device;
-
+  SoapySDR::Stream *stream;
+  
 public slots:
   void run();
 

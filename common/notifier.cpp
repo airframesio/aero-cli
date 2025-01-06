@@ -52,7 +52,6 @@ void EventNotifier::handleSigInt() {
   char c;
   std::ignore = ::read(sigintFd[1], &c, sizeof(c));
 
-  qDebug() << "INTERRUPT";
   emit interrupt();
   snInt->setEnabled(true);
 }
