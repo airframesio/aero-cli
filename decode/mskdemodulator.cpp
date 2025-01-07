@@ -2,14 +2,11 @@
 #include "coarsefreqestimate.h"
 #include <QDebug>
 
-#include <iostream>
-
 #include <QTimerEvent>
 
 MskDemodulator::MskDemodulator(QObject *parent) : QIODevice(parent) {
 
   afc = false;
-  sql = false;
 
   timer.start();
 
@@ -21,8 +18,6 @@ MskDemodulator::MskDemodulator(QObject *parent) : QIODevice(parent) {
   signalthreshold = 0.5; // lower is less sensitive
 
   SamplesPerSymbol = Fs / fb;
-
-  scatterpointtype = SPT_constellation;
 
   bc.SetInNumberOfBits(1);
   bc.SetOutNumberOfBits(8);
@@ -107,12 +102,7 @@ void MskDemodulator::DisconnectSinkDevice() {
 
 void MskDemodulator::setAFC(bool state) { afc = state; }
 
-void MskDemodulator::setSQL(bool state) { sql = state; }
-
 void MskDemodulator::setCPUReduce(bool state) { cpuReduce = state; }
-void MskDemodulator::setScatterPointType(ScatterPointType type) {
-  scatterpointtype = type;
-}
 
 double MskDemodulator::getCurrentFreq() { return mixer_center.GetFreqHz(); }
 
@@ -425,10 +415,6 @@ qint64 MskDemodulator::writeData(const char *data, qint64 len) {
 
         pointbuff_ptr++;
         pointbuff_ptr %= pointbuff.size();
-        if (scatterpointtype == SPT_constellation && sendscatterpoints) {
-          sendscatterpoints = false;
-          emit ScatterPoints(pointbuff);
-        }
       }
 
       double tda = (fabs((pt_msk).real() * 0.75) - 1.0);

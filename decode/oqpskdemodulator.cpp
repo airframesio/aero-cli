@@ -8,8 +8,6 @@
 
 OqpskDemodulator::OqpskDemodulator(QObject *parent) : QIODevice(parent) {
   afc = false;
-  sql = false;
-  scatterpointtype = SPT_constellation;
 
   dcd = false;
 
@@ -148,12 +146,7 @@ void OqpskDemodulator::DisconnectSinkDevice() {
 
 void OqpskDemodulator::setAFC(bool state) { afc = state; }
 
-void OqpskDemodulator::setSQL(bool state) { sql = state; }
-
 void OqpskDemodulator::setCPUReduce(bool state) { cpuReduce = state; }
-void OqpskDemodulator::setScatterPointType(ScatterPointType type) {
-  scatterpointtype = type;
-}
 
 void OqpskDemodulator::invalidatesettings() {
   Fs = -1;
@@ -535,10 +528,6 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
           pointbuff_ptr %= pointbuff.size();
           // if(scatterpointtype==SPT_constellation&&(pointbuff_ptr%100==0))emit
           // ScatterPoints(pointbuff);
-          if (scatterpointtype == SPT_constellation && sendscatterpoints) {
-            sendscatterpoints = false;
-            emit ScatterPoints(pointbuff);
-          }
         }
         // for looks show symbol phase offset
         if (!slowdown) {
@@ -550,10 +539,6 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
           phasepointbuff_ptr %= phasepointbuff.size();
           // if(scatterpointtype==SPT_phaseoffsetest)emit
           // ScatterPoints(phasepointbuff);
-          if (scatterpointtype == SPT_phaseoffsetest && sendscatterpoints) {
-            sendscatterpoints = false;
-            emit ScatterPoints(phasepointbuff);
-          }
         }
 
         // calc MSE of the points
@@ -581,7 +566,7 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
           // return the demodulated data (soft bit)
 
           if (RxDataBits.size() >= 32) {
-            if (!sql || mse < signalthreshold || lastmse < signalthreshold) {
+            if (mse < signalthreshold || lastmse < signalthreshold) {
 
               emit processDemodulatedSoftBits(RxDataBits);
             }
@@ -608,7 +593,7 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
   // return the demodulated data (packed in bytes)
   // using bytes and the qiodevice class
   if (!RxDataBytes.isEmpty()) {
-    if (!sql || mse < signalthreshold || lastmse < signalthreshold) {
+    if (mse < signalthreshold || lastmse < signalthreshold) {
       if (!pdatasinkdevice.isNull()) {
         QIODevice *io = pdatasinkdevice.data();
         if (io->isOpen())

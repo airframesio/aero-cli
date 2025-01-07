@@ -9,17 +9,10 @@
 #include <QPointer>
 #include <QVector>
 #include <assert.h>
-#include <complex>
 
 class OqpskDemodulator : public QIODevice {
   Q_OBJECT
 public:
-  enum ScatterPointType {
-    SPT_constellation,
-    SPT_phaseoffseterror,
-    SPT_phaseoffsetest,
-    SPT_None
-  };
   struct Settings {
     int coarsefreqest_fft_power;
     double freq_center;
@@ -41,7 +34,6 @@ public:
   explicit OqpskDemodulator(QObject *parent);
   ~OqpskDemodulator();
   void setAFC(bool state);
-  void setSQL(bool state);
   void setCPUReduce(bool state);
   void setSettings(Settings settings);
   void invalidatesettings();
@@ -52,7 +44,6 @@ public:
   qint64 readData(char *data, qint64 maxlen);
   qint64 writeData(const char *data, qint64 len);
   double getCurrentFreq();
-  void setScatterPointType(ScatterPointType type);
 signals:
   void ScatterPoints(const QVector<cpx_type> &buffer);
   void OrgOverlapedBuffer(const QVector<double> &buffer);
@@ -70,8 +61,6 @@ signals:
 private:
   QPointer<QIODevice> pdatasinkdevice;
   bool afc;
-  bool sql;
-  int scatterpointtype;
 
   QVector<double> spectrumcycbuff;
   int spectrumcycbuff_ptr;

@@ -5,7 +5,6 @@
 #include <QIODevice>
 
 #include <QVector>
-#include <complex>
 
 #include <QPointer>
 
@@ -16,12 +15,6 @@ class CoarseFreqEstimate;
 class MskDemodulator : public QIODevice {
   Q_OBJECT
 public:
-  enum ScatterPointType {
-    SPT_constellation,
-    SPT_phaseoffseterror,
-    SPT_phaseoffsetest,
-    SPT_None
-  };
   struct Settings {
     int coarsefreqest_fft_power;
     double freq_center;
@@ -55,9 +48,7 @@ public:
   void setSettings(Settings settings);
   void invalidatesettings();
   void setAFC(bool state);
-  void setSQL(bool state);
   void setCPUReduce(bool state);
-  void setScatterPointType(ScatterPointType type);
   double getCurrentFreq();
 
 private:
@@ -108,10 +99,6 @@ private:
   MovingAverage *msema;
 
   bool afc;
-
-  bool sql;
-
-  int scatterpointtype;
 
   QVector<cpx_type> singlepointphasevector;
 
