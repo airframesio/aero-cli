@@ -255,16 +255,15 @@ Exit:
 
 void Decoder::handleACARS(ACARSItem &item) {
   auto label = item.LABEL;
-  if (label[1] == (char) 127) label[1] = '?';
-  
+  if (label[1] == (char)127)
+    label[1] = '?';
+
   INF("[%7s] ACK=%s BLK=%c C=%d LBL=%2s %s%s",
       item.PLANEREG.toStdString().c_str(),
-      std::string({item.TAK ? (char)'?' : (char)item.TAK}).c_str(),
-      item.BI,
-      item.moretocome ? 1 : 0, 
-      label.toStdString().c_str(),
+      std::string({item.TAK ? (char)'?' : (char)item.TAK}).c_str(), item.BI,
+      item.moretocome ? 1 : 0, label.toStdString().c_str(),
       item.message.isEmpty() ? "" : "MSG=",
-      item.message.remove("\n").toStdString().c_str());
+      item.message.remove("\n").remove("\r").toStdString().c_str());
 }
 
 void Decoder::handleHup() {
