@@ -2,17 +2,14 @@
 #define MSKDEMODULATOR_H
 
 #include "DSP.h"
-#include <QIODevice>
-
+#include <QObject>
 #include <QVector>
-
 #include <QPointer>
-
 #include <QElapsedTimer>
 
 class CoarseFreqEstimate;
 
-class MskDemodulator : public QIODevice {
+class MskDemodulator : public QObject {
   Q_OBJECT
 public:
   struct Settings {
@@ -24,6 +21,7 @@ public:
     int symbolspercycle;
     double signalthreshold;
     bool zmqAudio;
+
     Settings() {
       coarsefreqest_fft_power = 13; // 2^coarsefreqest_fft_power
       freq_center = 1000;           // Hz
@@ -38,12 +36,6 @@ public:
   explicit MskDemodulator(QObject *parent);
   ~MskDemodulator();
 
-  void ConnectSinkDevice(QIODevice *datasinkdevice);
-  void DisconnectSinkDevice();
-
-  void start();
-  void stop();
-  qint64 readData(char *data, qint64 maxlen);
   qint64 writeData(const char *data, qint64 len);
   void setSettings(Settings settings);
   void invalidatesettings();

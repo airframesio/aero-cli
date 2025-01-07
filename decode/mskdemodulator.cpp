@@ -4,7 +4,7 @@
 
 #include <QTimerEvent>
 
-MskDemodulator::MskDemodulator(QObject *parent) : QIODevice(parent) {
+MskDemodulator::MskDemodulator(QObject *parent) : QObject(parent) {
 
   afc = false;
 
@@ -78,26 +78,6 @@ MskDemodulator::MskDemodulator(QObject *parent) : QIODevice(parent) {
   dcd = false;
 
   correctionfactor = 1.0;
-}
-
-/// Connects a sink devide to the modem for the demodulated data
-void MskDemodulator::ConnectSinkDevice(QIODevice *_datasinkdevice) {
-  if (!_datasinkdevice)
-    return;
-  pdatasinkdevice = _datasinkdevice;
-  if (pdatasinkdevice.isNull())
-    return;
-  QIODevice *io = pdatasinkdevice.data();
-  io->open(QIODevice::WriteOnly); //!!!overrides the settings
-}
-
-/// Disconnects the sink devide from the modem
-void MskDemodulator::DisconnectSinkDevice() {
-  if (pdatasinkdevice.isNull())
-    return;
-  QIODevice *io = pdatasinkdevice.data();
-  io->close();
-  pdatasinkdevice.clear();
 }
 
 void MskDemodulator::setAFC(bool state) { afc = state; }
@@ -267,16 +247,6 @@ MskDemodulator::~MskDemodulator() {
   delete ebnomeasure;
   delete pointmean;
   delete marg;
-}
-
-void MskDemodulator::start() { open(QIODevice::WriteOnly); }
-
-void MskDemodulator::stop() { close(); }
-
-qint64 MskDemodulator::readData(char *data, qint64 maxlen) {
-  Q_UNUSED(data);
-  Q_UNUSED(maxlen);
-  return 0;
 }
 
 qint64 MskDemodulator::writeData(const char *data, qint64 len) {

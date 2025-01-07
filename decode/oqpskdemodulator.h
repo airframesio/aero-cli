@@ -4,13 +4,12 @@
 #include "DSP.h"
 #include "coarsefreqestimate.h"
 #include <QElapsedTimer>
-#include <QIODevice>
 #include <QObject>
 #include <QPointer>
 #include <QVector>
 #include <assert.h>
 
-class OqpskDemodulator : public QIODevice {
+class OqpskDemodulator : public QObject {
   Q_OBJECT
 public:
   struct Settings {
@@ -21,6 +20,7 @@ public:
     double Fs;
     double signalthreshold;
     bool zmqAudio;
+
     Settings() {
       coarsefreqest_fft_power = 14; // 13;//2^coarsefreqest_fft_power
       freq_center = 8000;           // Hz
@@ -37,11 +37,6 @@ public:
   void setCPUReduce(bool state);
   void setSettings(Settings settings);
   void invalidatesettings();
-  void ConnectSinkDevice(QIODevice *datasinkdevice);
-  void DisconnectSinkDevice();
-  void start();
-  void stop();
-  qint64 readData(char *data, qint64 maxlen);
   qint64 writeData(const char *data, qint64 len);
   double getCurrentFreq();
 signals:

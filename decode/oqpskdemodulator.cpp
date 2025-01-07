@@ -6,7 +6,7 @@
 
 #define SPECTRUM_FFT_POWER 13
 
-OqpskDemodulator::OqpskDemodulator(QObject *parent) : QIODevice(parent) {
+OqpskDemodulator::OqpskDemodulator(QObject *parent) : QObject(parent) {
   afc = false;
 
   dcd = false;
@@ -122,26 +122,6 @@ OqpskDemodulator::~OqpskDemodulator() {
   delete marg;
   delete ebnomeasure;
   delete coarsefreqestimate;
-}
-
-/// Connects a sink devide to the modem for the demodulated data
-void OqpskDemodulator::ConnectSinkDevice(QIODevice *_datasinkdevice) {
-  if (!_datasinkdevice)
-    return;
-  pdatasinkdevice = _datasinkdevice;
-  if (pdatasinkdevice.isNull())
-    return;
-  QIODevice *io = pdatasinkdevice.data();
-  io->open(QIODevice::WriteOnly); //!!!overrides the settings
-}
-
-/// Disconnects the sink devide from the modem
-void OqpskDemodulator::DisconnectSinkDevice() {
-  if (pdatasinkdevice.isNull())
-    return;
-  QIODevice *io = pdatasinkdevice.data();
-  io->close();
-  pdatasinkdevice.clear();
 }
 
 void OqpskDemodulator::setAFC(bool state) { afc = state; }
@@ -299,17 +279,7 @@ void OqpskDemodulator::CenterFreqChangedSlot(
   emit Plottables(mixer2.GetFreqHz(), mixer_center.GetFreqHz(), lockingbw);
 }
 
-void OqpskDemodulator::start() { open(QIODevice::WriteOnly); }
-
-void OqpskDemodulator::stop() { close(); }
-
 double OqpskDemodulator::getCurrentFreq() { return mixer_center.GetFreqHz(); }
-
-qint64 OqpskDemodulator::readData(char *data, qint64 maxlen) {
-  Q_UNUSED(data);
-  Q_UNUSED(maxlen);
-  return 0;
-}
 
 qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
   if (!len)
