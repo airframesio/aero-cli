@@ -64,6 +64,8 @@ public slots:
   void handleInterrupt();
   void handleTerminate();
 
+  void handleACARS(ACARSItem &item);
+
 signals:
   void completed();
   void audioReceived(const QByteArray &, quint32);

@@ -122,10 +122,10 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
   oqpskDemod->setCPUReduce(false);
   oqpskDemod->setSettings(oqpskSettings);
 
-  // TODO: aerol
-
   if (this->bitRate > 1200) {
     DBG("Connecting audioReceived signal to OQPSK demodulator");
+
+    // TODO: implement signal hunter
     connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
             oqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
     connect(oqpskDemod,
@@ -133,11 +133,23 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
             SLOT(processDemodulatedSoftBits(const QVector<short> &)));
   } else {
     DBG("Connecting audioReceived signal to MSK demodulator");
+
+    // TODO: implement signal hunter
     connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)), mskDemod,
             SLOT(dataReceived(const QByteArray &, quint32)));
     connect(mskDemod,
             SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
             SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+  }
+
+  if (this->disableReassembly) {
+    DBG("Reassembly disabled, connecting to ACARSfragmentsignal signal");
+    connect(aerol, SIGNAL(ACARSfragmentsignal(ACARSItem &)), this,
+            SLOT(handleACARS(ACARSItem &)));
+  } else {
+    DBG("Reassembly enabled, connecting to ACARSsignal signal");
+    connect(aerol, SIGNAL(ACARSsignal(ACARSItem &)), this,
+            SLOT(handleACARS(ACARSItem &)));
   }
 
   running = true;
@@ -239,6 +251,20 @@ Exit:
   }
 
   emit completed();
+}
+
+void Decoder::handleACARS(ACARSItem &item) {
+  auto label = item.LABEL;
+  if (label[1] == (char) 127) label[1] = '?';
+  
+  INF("[%7s] ACK=%s BLK=%c C=%d LBL=%2s %s%s",
+      item.PLANEREG.toStdString().c_str(),
+      std::string({item.TAK ? (char)'?' : (char)item.TAK}).c_str(),
+      item.BI,
+      item.moretocome ? 1 : 0, 
+      label.toStdString().c_str(),
+      item.message.isEmpty() ? "" : "MSG=",
+      item.message.remove("\n").toStdString().c_str());
 }
 
 void Decoder::handleHup() {

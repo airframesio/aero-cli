@@ -1,6 +1,5 @@
 #include "aerol.h"
 #include <QtEndian>
-#include <iostream>
 
 // R channel
 
@@ -453,15 +452,8 @@ bool ParserISU::parse(ISUItem &isuitem) {
     // mark as valid
     anacarsitem.valid = true;
 
-    // TODO[XXX]: oof
-    std::cout << "A[" << anacarsitem.PLANEREG.toStdString() 
-              << "] ack=" << std::string({anacarsitem.TAK ? (char)'?' : (char)anacarsitem.TAK})
-              << ", blk=" << anacarsitem.BI
-              << ", more=" << (anacarsitem.moretocome ? "1" : "0")
-              << ", label=" << (anacarsitem.LABEL[1] == (char)127 ? "?" : "") << anacarsitem.LABEL.toStdString()
-              << ", msg=" << (anacarsitem.message.isEmpty() ? "null" : anacarsitem.message.toStdString())
-              << std::endl;
-
+    emit ACARSfragmentsignal(anacarsitem);
+    
     // send acars message to lookup if fully defraged
     if (acarsdefragmenter.defragment(anacarsitem)) {
       ACARSItem *pai = new ACARSItem;
@@ -524,6 +516,7 @@ void ParserISU::acarslookupresult(bool ok, int ref, const QStringList &result) {
     }
   }
   panacarsitem->dblookupresult = result;
+
   emit ACARSsignal(*panacarsitem);
   delete panacarsitem;
 }

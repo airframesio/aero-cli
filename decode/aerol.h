@@ -248,6 +248,7 @@ public:
   bool downlink;
 signals:
   void ACARSsignal(ACARSItem &acarsitem);
+  void ACARSfragmentsignal(ACARSItem &acarsitem);
   void Errorsignal(QString &error);
 public slots:
   void setDataBaseDir(const QString &dir);
