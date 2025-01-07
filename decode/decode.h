@@ -1,6 +1,8 @@
 #ifndef DECODE_H
 #define DECODE_H
 
+#include "mskdemodulator.h"
+#include "oqpskdemodulator.h"
 #include <QList>
 #include <QObject>
 #include <QUrl>
@@ -49,6 +51,9 @@ private:
   OutputFormat format;
 
   QList<ForwardTarget> forwarders;
+
+  MskDemodulator *mskDemod;
+  OqpskDemodulator *oqpskDemod;
 
 public slots:
   void run();

@@ -2,6 +2,8 @@
 
 #include "decode.h"
 #include "logger.h"
+#include "mskdemodulator.h"
+#include "oqpskdemodulator.h"
 
 OutputFormat parseOutputFormat(const QString &raw) {
   QString norm = raw.toLower();
@@ -71,7 +73,7 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
   this->format = parseOutputFormat(format);
 
   running = false;
-  
+
   if (!validBitRates.contains(this->bitRate)) {
     CRIT("Unsupported bit rate: %d", this->bitRate);
     return;
@@ -86,6 +88,20 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
     parseForwarder(rawForwarders);
   }
 
+  MskDemodulator::Settings mskSettings;
+  mskSettings.freq_center = 0;
+  mskDemod = new MskDemodulator(this);
+  mskDemod->setAFC(true);
+  mskDemod->setCPUReduce(false);
+  mskDemod->setSettings(mskSettings);
+  
+  OqpskDemodulator::Settings oqpskSettings;
+  oqpskSettings.freq_center = 0;
+  oqpskDemod = new OqpskDemodulator(this);
+  oqpskDemod->setAFC(true);
+  oqpskDemod->setCPUReduce(false);
+  oqpskDemod->setSettings(oqpskSettings);
+  
   zmqContext = ::zmq_ctx_new();
   if (zmqContext == nullptr) {
     CRIT("Failed to create new ZeroMQ context, error code = %d", zmq_errno());
@@ -136,8 +152,9 @@ void Decoder::publisherConsumer() {
   unsigned char rateBuf[4] = {0};
   char *samplesBuf = nullptr;
 
-  if (!running) goto Exit;
-  
+  if (!running)
+    goto Exit;
+
   samplesBuf = (char *)::malloc(bufSize * sizeof(char));
   if (samplesBuf == nullptr) {
     CRIT("Failed to allocate samples buffer for ZeroMQ");
