@@ -312,7 +312,6 @@ qint64 OqpskDemodulator::readData(char *data, qint64 maxlen) {
 }
 
 qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
-
   if (!len)
     return 0;
 

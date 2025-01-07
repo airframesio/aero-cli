@@ -1,6 +1,7 @@
 #ifndef DECODE_H
 #define DECODE_H
 
+#include "aerol.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
 #include <QList>
@@ -52,9 +53,10 @@ private:
 
   QList<ForwardTarget> forwarders;
 
+  AeroL *aerol;
   MskDemodulator *mskDemod;
   OqpskDemodulator *oqpskDemod;
-
+  
 public slots:
   void run();
 

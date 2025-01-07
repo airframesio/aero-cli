@@ -1,5 +1,6 @@
 #include <zmq.h>
 
+#include "aerol.h"
 #include "decode.h"
 #include "logger.h"
 #include "mskdemodulator.h"
@@ -88,20 +89,6 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
     parseForwarder(rawForwarders);
   }
 
-  MskDemodulator::Settings mskSettings;
-  mskSettings.freq_center = 0;
-  mskDemod = new MskDemodulator(this);
-  mskDemod->setAFC(true);
-  mskDemod->setCPUReduce(false);
-  mskDemod->setSettings(mskSettings);
-  
-  OqpskDemodulator::Settings oqpskSettings;
-  oqpskSettings.freq_center = 0;
-  oqpskDemod = new OqpskDemodulator(this);
-  oqpskDemod->setAFC(true);
-  oqpskDemod->setCPUReduce(false);
-  oqpskDemod->setSettings(oqpskSettings);
-  
   zmqContext = ::zmq_ctx_new();
   if (zmqContext == nullptr) {
     CRIT("Failed to create new ZeroMQ context, error code = %d", zmq_errno());
@@ -112,6 +99,45 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
   if (zmqSub == nullptr) {
     CRIT("Failed to create ZeroMQ socket, error code = %d", zmq_errno());
     return;
+  }
+
+  aerol = new AeroL(this);
+  aerol->setBitRate(this->bitRate);
+  aerol->setBurstmode(this->burstMode);
+  // TODO: setDoNotDisplay?
+
+  MskDemodulator::Settings mskSettings;
+  mskSettings.freq_center = 0;
+
+  mskDemod = new MskDemodulator(this);
+  mskDemod->setAFC(true);
+  mskDemod->setCPUReduce(false);
+  mskDemod->setSettings(mskSettings);
+
+  OqpskDemodulator::Settings oqpskSettings;
+  // oqpskSettings.freq_center = 0;
+
+  oqpskDemod = new OqpskDemodulator(this);
+  oqpskDemod->setAFC(true);
+  oqpskDemod->setCPUReduce(false);
+  oqpskDemod->setSettings(oqpskSettings);
+
+  // TODO: aerol
+
+  if (this->bitRate > 1200) {
+    DBG("Connecting audioReceived signal to OQPSK demodulator");
+    connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
+            oqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
+    connect(oqpskDemod,
+            SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
+            SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+  } else {
+    DBG("Connecting audioReceived signal to MSK demodulator");
+    connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)), mskDemod,
+            SLOT(dataReceived(const QByteArray &, quint32)));
+    connect(mskDemod,
+            SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
+            SLOT(processDemodulatedSoftBits(const QVector<short> &)));
   }
 
   running = true;
@@ -128,6 +154,7 @@ Decoder::~Decoder() {
 }
 
 void Decoder::run() {
+  DBG("Starting concurrent publishing consumer thread");
   consumerThread = QtConcurrent::run([this] { publisherConsumer(); });
 }
 
@@ -202,7 +229,7 @@ void Decoder::publisherConsumer() {
 
     if (recvSize >= 0) {
       QByteArray qdata(samplesBuf, recvSize);
-      emit audioReceived(samplesBuf, sampleRate);
+      emit audioReceived(qdata, sampleRate);
     }
   }
 
