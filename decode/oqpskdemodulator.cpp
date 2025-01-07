@@ -559,19 +559,6 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
   // someone uses C band with lots of drift. untested on C-band.
   mixer_fir_pre.SetFreq(mixer2_freq_sum / ((double)i));
 
-  // return the demodulated data (packed in bytes)
-  // using bytes and the qiodevice class
-  if (!RxDataBytes.isEmpty()) {
-    if (mse < signalthreshold || lastmse < signalthreshold) {
-      if (!pdatasinkdevice.isNull()) {
-        QIODevice *io = pdatasinkdevice.data();
-        if (io->isOpen())
-          io->write(RxDataBytes);
-      }
-    }
-    RxDataBytes.clear();
-  }
-
   return len;
 }
 

@@ -54,7 +54,6 @@ signals:
   void processDemodulatedSoftBits(const QVector<short> &soft_bits);
 
 private:
-  QPointer<QIODevice> pdatasinkdevice;
   bool afc;
 
   QVector<double> spectrumcycbuff;

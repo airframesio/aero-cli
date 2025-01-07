@@ -1,5 +1,6 @@
 #include "aerol.h"
 #include <QtEndian>
+#include <iostream>
 
 // R channel
 
@@ -876,7 +877,7 @@ void OQPSKPreambleDetectorAndAmbiguityCorrection::setTollerence(
   tollerence = _tollerence;
 }
 
-AeroL::AeroL(QObject *parent) : QIODevice(parent) {
+AeroL::AeroL(QObject *parent) : QObject(parent) {
 
   cntr = 1000000000;
   formatid = 0;
@@ -1042,34 +1043,6 @@ void AeroL::setSettings(double fb, bool _burstmode) {
 }
 
 AeroL::~AeroL() {}
-
-bool AeroL::Start() {
-  if (psinkdevice.isNull())
-    return false;
-  QIODevice *out = psinkdevice.data();
-  out->open(QIODevice::WriteOnly);
-  return true;
-}
-
-void AeroL::Stop() {
-  if (!psinkdevice.isNull()) {
-    QIODevice *out = psinkdevice.data();
-    out->close();
-  }
-}
-
-void AeroL::ConnectSinkDevice(QIODevice *device) {
-  if (!device)
-    return;
-  psinkdevice = device;
-  Start();
-}
-
-void AeroL::DisconnectSinkDevice() {
-  Stop();
-  if (!psinkdevice.isNull())
-    psinkdevice.clear();
-}
 
 void AeroL::updateDCD() {
   // qDebug()<<datacdcountdown;
@@ -2064,37 +2037,6 @@ QByteArray &AeroL::Decode(QVector<short> &bits,
   return decodedbytes;
 }
 
-qint64 AeroL::readData(char *data, qint64 maxlen) {
-  Q_UNUSED(data);
-  Q_UNUSED(maxlen);
-  return 0;
-}
-
-qint64 AeroL::writeData(const char *data, qint64 len) {
-  sbits.clear();
-  uchar *udata = (uchar *)data;
-  uchar auchar;
-  for (int i = 0; i < len; i++) {
-    auchar = udata[i];
-    if (preambledetectorburst.Update(auchar)) {
-      sbits.push_back(-1);
-    } else
-      for (int j = 0; j < 8; j++) {
-        sbits.push_back(auchar & 1);
-        auchar = auchar >> 1;
-      }
-  }
-  Decode(sbits);
-
-  if (!psinkdevice.isNull()) {
-    QIODevice *out = psinkdevice.data();
-    if (out->isOpen())
-      out->write(decodedbytes);
-  }
-
-  return len;
-}
-
 void AeroL::processDemodulatedSoftBits(const QVector<short> &soft_bits) {
 
   sbits.clear();
@@ -2105,12 +2047,6 @@ void AeroL::processDemodulatedSoftBits(const QVector<short> &soft_bits) {
     DecodeC(sbits);
   } else {
     Decode(sbits, true);
-  }
-
-  if (!psinkdevice.isNull()) {
-    QIODevice *out = psinkdevice.data();
-    if (out->isOpen())
-      out->write(decodedbytes);
   }
 }
 

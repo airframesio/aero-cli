@@ -96,8 +96,6 @@ private:
 
   BaceConverter bc;
 
-  QPointer<QIODevice> pdatasinkdevice;
-
   QElapsedTimer timer;
 
   double ee;

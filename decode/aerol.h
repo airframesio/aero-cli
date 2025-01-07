@@ -1,7 +1,6 @@
 #ifndef AEROL_H
 #define AEROL_H
 
-#include "iostream"
 #include "jconvolutionalcodec.h"
 #include <QDateTime>
 #include <QDebug>
@@ -846,17 +845,13 @@ public:
   int numberofsus;
 };
 
-class AeroL : public QIODevice {
+class AeroL : public QObject {
   Q_OBJECT
 public:
   enum ChannelType { PChannel, RChannel, TChannel };
 
   explicit AeroL(QObject *parent = 0);
   ~AeroL();
-  void ConnectSinkDevice(QIODevice *device);
-  void DisconnectSinkDevice();
-  qint64 readData(char *data, qint64 maxlen);
-  qint64 writeData(const char *data, qint64 len);
 signals:
   void DataCarrierDetect(bool status);
   void ACARSsignal(ACARSItem &acarsitem);
@@ -884,8 +879,6 @@ public slots:
   void processDemodulatedSoftBits(const QVector<short> &soft_bits);
 
 private:
-  bool Start();
-  void Stop();
   void SendCAssignment(int k, QString decline);
   void SendLogOnOff(int k, QString text);
 
@@ -893,7 +886,6 @@ private:
   QByteArray &Decode(QVector<short> &bits, bool soft = false);
   QByteArray &DecodeC(QVector<short> &bits);
 
-  QPointer<QIODevice> psinkdevice;
   QVector<short> sbits;
   QByteArray decodedbytes;
   PreambleDetector preambledetector;
