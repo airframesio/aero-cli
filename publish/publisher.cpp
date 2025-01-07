@@ -16,6 +16,7 @@ Publisher::Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
   this->enableBiast = enableBiast;
   this->enableDcc = enableDcc;
 
+  tuner_gain = 496;
   running = false;
 
   if (!loadSettings(settingsPath)) {
@@ -73,8 +74,6 @@ bool Publisher::loadSettings(const QString &settingsPath) {
     return false;
   }
 
-  center_frequency = settings.value("center_frequency").toInt();
-
   QStringList vfo_str;
 
   center_frequency = settings.value("center_frequency").toInt();
@@ -110,7 +109,8 @@ bool Publisher::loadSettings(const QString &settingsPath) {
   QString zmq_address = settings.value("zmq_address").toString();
 
   this->enableDcc =
-      settings.value("correct_dc_bias").toString() == "1" ? true : false;
+      enableDcc ||
+      (settings.value("correct_dc_bias").toString() == "1" ? true : false);
 
   int msize = settings.beginReadArray("main_vfos");
 
@@ -227,6 +227,7 @@ bool Publisher::loadSettings(const QString &settingsPath) {
 }
 
 void Publisher::run() {
+  DBG("Starting concurrent reader publishing thread");
   mainReader = QtConcurrent::run([this] { return readerThread(); });
 }
 
@@ -234,14 +235,15 @@ void Publisher::readerThread() {
   int flags = 0;
   int samplesRead = 0;
   long long timeNs = 0;
-  float *samplesBuf = (float *) ::malloc(buflen * sizeof(float));
+  float *samplesBuf = (float *)::malloc(buflen * sizeof(float));
 
   void *sampleBuffers[] = {samplesBuf};
   SoapySDR::Kwargs streamArgs{{"buffers", std::to_string(24)},
                               {"bufflen", std::to_string(buflen)}};
 
-  if (!running) goto Exit;
-  
+  if (!running)
+    goto Exit;
+
   if (samplesBuf == nullptr) {
     CRIT("Memory allocation failed for samplesBuf: out of memory when "
          "attempting to allocate %lu bytes",
@@ -269,7 +271,7 @@ void Publisher::readerThread() {
       break;
     }
 
-    demodData(samplesBuf, samplesRead << 1);
+    demodData(samplesBuf, samplesRead * 2);
   }
 
 Exit:
@@ -303,19 +305,18 @@ void Publisher::demodData(const float *data, int len) {
   }
 }
 
-
 void Publisher::handleHup() {
   DBG("Got SIGHUP signal from EventNotifier");
-  
+
   // TODO: do debug dump for debugging?
 }
 
 void Publisher::handleInterrupt() {
   DBG("Got SIGINT signal from EventNotifier");
-  running = false; 
+  running = false;
 }
 
-void Publisher::handleTerm() {
+void Publisher::handleTerminate() {
   DBG("Got SIGTERM signal from EventNotifier");
   running = false;
 }

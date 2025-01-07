@@ -55,7 +55,7 @@ public slots:
 
   void handleHup();
   void handleInterrupt();
-  void handleTerm();
+  void handleTerminate();
   
 signals:
   void completed();
