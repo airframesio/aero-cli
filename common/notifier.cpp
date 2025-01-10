@@ -12,6 +12,8 @@ int EventNotifier::sigintFd[2];
 int EventNotifier::sigtermFd[2];
 
 EventNotifier::EventNotifier(QObject *parent) : QObject(parent) {
+  // TODO: consider what needs to be done here for Windows support
+  
   if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sighupFd)) {
     qFatal("Failed to create socketpair for SIGHUP");
   }

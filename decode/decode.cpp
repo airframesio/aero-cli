@@ -258,7 +258,9 @@ void Decoder::handleACARS(ACARSItem &item) {
   if (label[1] == (char)127)
     label[1] = '?';
 
-  INF("[%7s] ACK=%s BLK=%c C=%d LBL=%2s %s",
+  INF("AES:%08x GES:%08x [%7s] ACK=%s BLK=%c C=%d LBL=%2s %s",
+      item.isuitem.AESID,
+      item.isuitem.GESID,
       item.PLANEREG.toStdString().c_str(),
       std::string({item.TAK ? (char)'?' : (char)item.TAK}).c_str(), item.BI,
       item.moretocome ? 1 : 0, label.toStdString().c_str(),
