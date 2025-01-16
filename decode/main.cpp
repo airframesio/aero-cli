@@ -1,8 +1,11 @@
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QHostInfo>
 #include <QList>
 #include <QTimer>
+#include <qcommandlineoption.h>
+#include <qhostinfo.h>
 
 #include "decode.h"
 #include "logger.h"
@@ -29,6 +32,8 @@ int main(int argc, char *argv[]) {
       QStringList() << "p" << "publisher",
       "URL of aero-publish or SDRReceiver publishing ZeroMQ server",
       "publisher"));
+  parser.addOption(QCommandLineOption(QStringList() << "s" << "station-id",
+                                      "Station ID for feeding", "station-id"));
   parser.addOption(QCommandLineOption(QStringList() << "t" << "topic",
                                       "ZeroMQ VFO topic name", "topic"));
   parser.addOption(QCommandLineOption(QStringList() << "v" << "verbose",
@@ -52,7 +57,8 @@ int main(int argc, char *argv[]) {
   const QString topic = parser.value("topic");
 
   QString format = parser.value("format");
-
+  QString station_id = parser.value("station-id");
+  
   int bitRate = parser.value("bit-rate").toInt();
 
   bool burstMode = parser.isSet("burst");
@@ -64,6 +70,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  if (station_id.isEmpty()) {
+    station_id = QString("%1-AERO-INMARSAT").arg(QHostInfo::localHostName().toUpper());
+    WARN("No station ID provided, using generated default %s", station_id.toStdString().c_str());
+  }
+  
   if (topic.isEmpty()) {
     CRIT("Required topic option is missing, example: -t VFO51");
     return 1;
@@ -74,8 +85,8 @@ int main(int argc, char *argv[]) {
   }
 
   EventNotifier notifier;
-  Decoder decoder(publisher, topic, format, bitRate, burstMode, rawForwarders,
-                  disableReassembly);
+  Decoder decoder(station_id, publisher, topic, format, bitRate, burstMode,
+                  rawForwarders, disableReassembly);
 
   QObject::connect(&notifier, SIGNAL(hangup()), &decoder, SLOT(handleHup()));
   QObject::connect(&notifier, SIGNAL(interrupt()), &decoder,

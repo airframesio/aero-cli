@@ -11,6 +11,10 @@
   if (gMaxLogVerbosity) qDebug("\033[1;34m[DEBUG] " fmt "\033[0m" __VA_OPT__(,) __VA_ARGS__); \
 }
 
+#define WARN(fmt, ...) {\
+  qDebug("\033[1;33m[WARN] " fmt "\033[0m" __VA_OPT__(,) __VA_ARGS__); \
+}
+
 #define CRIT(fmt, ...) {\
   qDebug("\033[1;31m[CRITICAL] " fmt "\033[0m" __VA_OPT__(,) __VA_ARGS__); \
 }

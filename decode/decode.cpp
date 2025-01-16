@@ -61,12 +61,13 @@ ForwardTarget *ForwardTarget::fromRaw(const QString &raw) {
   return new ForwardTarget(url, fmt);
 }
 
-Decoder::Decoder(const QString &publisher, const QString &topic,
-                 const QString &format, int bitRate, bool burstMode,
-                 const QString &rawForwarders, bool disableReassembly,
-                 QObject *parent)
+Decoder::Decoder(const QString &station_id, const QString &publisher,
+                 const QString &topic, const QString &format, int bitRate,
+                 bool burstMode, const QString &rawForwarders,
+                 bool disableReassembly, QObject *parent)
     : QObject(parent) {
   this->publisher = publisher;
+  this->station_id = station_id;
   this->topic = topic;
   this->bitRate = bitRate;
   this->burstMode = burstMode;
@@ -107,7 +108,9 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
   // TODO: setDoNotDisplay?
 
   MskDemodulator::Settings mskSettings;
+  mskSettings.zmqAudio = true;
   mskSettings.freq_center = 0;
+  mskSettings.Fs = (this->bitRate == 600) ? 12000 : 24000;
 
   mskDemod = new MskDemodulator(this);
   mskDemod->setAFC(true);
@@ -115,31 +118,52 @@ Decoder::Decoder(const QString &publisher, const QString &topic,
   mskDemod->setSettings(mskSettings);
 
   OqpskDemodulator::Settings oqpskSettings;
-  // oqpskSettings.freq_center = 0;
+  oqpskSettings.zmqAudio = true;
+  oqpskSettings.freq_center = 0;
 
   oqpskDemod = new OqpskDemodulator(this);
   oqpskDemod->setAFC(true);
   oqpskDemod->setCPUReduce(false);
   oqpskDemod->setSettings(oqpskSettings);
 
+  hunter = new SignalHunter(15, this);
+  connect(hunter, SIGNAL(newFreqCenter(double)), this,
+          SLOT(handleNewFreqCenter(double)));
+  connect(hunter, SIGNAL(noSignalAfterScan()), this,
+          SLOT(handleNoSignalAfterFullScan()));
+
   if (this->bitRate > 1200) {
     DBG("Connecting audioReceived signal to OQPSK demodulator");
 
-    // TODO: implement signal hunter
+    hunter->setParams(0, 25000, 10500);
+
+    // TODO: support burst mode
+    
     connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
             oqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
     connect(oqpskDemod,
             SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
             SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+    connect(oqpskDemod, SIGNAL(SignalStatus(bool)), hunter,
+            SLOT(updatedSignalStatus(bool)));
+    connect(hunter, SIGNAL(newFreqCenter(double)), oqpskDemod,
+            SLOT(CenterFreqChangedSlot(double)));
   } else {
     DBG("Connecting audioReceived signal to MSK demodulator");
 
-    // TODO: implement signal hunter
+    hunter->setParams(0, 6000, 900);
+
+    // TODO: support burst mode
+    
     connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)), mskDemod,
             SLOT(dataReceived(const QByteArray &, quint32)));
     connect(mskDemod,
             SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
             SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+    connect(mskDemod, SIGNAL(SignalStatus(bool)), hunter,
+            SLOT(updatedSignalStatus(bool)));
+    connect(hunter, SIGNAL(newFreqCenter(double)), mskDemod,
+            SLOT(CenterFreqChangedSlot(double)));
   }
 
   if (this->disableReassembly) {
@@ -253,14 +277,22 @@ Exit:
   emit completed();
 }
 
+void Decoder::handleNoSignalAfterFullScan() {
+  WARN("Completed full VFO scan and could not lock into a signal. Are you sure "
+       "the ZMQ topic is transmitting?");
+  running = false;
+}
+
+void Decoder::handleNewFreqCenter(double freq_center) {
+}
+
 void Decoder::handleACARS(ACARSItem &item) {
   auto label = item.LABEL;
   if (label[1] == (char)127)
     label[1] = '?';
 
   INF("AES:%08x GES:%08x [%7s] ACK=%s BLK=%c C=%d LBL=%2s %s",
-      item.isuitem.AESID,
-      item.isuitem.GESID,
+      item.isuitem.AESID, item.isuitem.GESID,
       item.PLANEREG.toStdString().c_str(),
       std::string({item.TAK ? (char)'?' : (char)item.TAK}).c_str(), item.BI,
       item.moretocome ? 1 : 0, label.toStdString().c_str(),

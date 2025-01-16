@@ -477,7 +477,7 @@ void MskDemodulator::DCDstatSlot(bool _dcd) { dcd = _dcd; }
 void MskDemodulator::dataReceived(const QByteArray &audio, quint32 sampleRate) {
   if (sampleRate != Fs) {
     qDebug() << "Sample rate different than expected. Trying to change "
-                "demodulator sample rate";
+                "demodulator sample rate. (Expected:" << sampleRate << ", Got:" << Fs << ")";
     last_applied_settings.Fs = sampleRate;
     setSettings(last_applied_settings);
   }
