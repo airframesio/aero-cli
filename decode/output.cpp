@@ -23,9 +23,9 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
 
   QByteArray TAKstr;
   TAKstr += item.TAK;
-
   if (item.TAK == 0x15)
     TAKstr = ((QString) "!").toLatin1();
+
   uchar label1 = item.LABEL[1];
   if ((uchar)item.LABEL[1] == 127)
     label1 = 'd';
@@ -119,29 +119,29 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
 
     return new QString(QJsonDocument(root).toJson(QJsonDocument::Compact));
   } else if (fmt == OutputFormat::Text) {
-    QString out;
+    QString *out = new QString;
     QString message = item.message;
     message.replace("\n", "\\n")
         .replace("\r", "\\r")
         .replace("\t", "\\t")
-        .replace("\b", "\\b");
+        .replace("\a", "\\a");
 
-    out += QString("AES:%1 GES:%2 [%3] ACK=%4 BLK=%5 ")
-               .arg(upperHex(item.isuitem.AESID, 6, 16, QChar('0')))
-               .arg(upperHex(item.isuitem.GESID, 6, 16, QChar('0')))
-               .arg(item.PLANEREG, 7)
-               .arg(QString(TAKstr), 1)
-               .arg(QString((QChar)item.BI));
+    *out += QString("AES:%1 GES:%2 [%3] ACK=%4 BLK=%5 ")
+                .arg(upperHex(item.isuitem.AESID, 6, 16, QChar('0')))
+                .arg(upperHex(item.isuitem.GESID, 6, 16, QChar('0')))
+                .arg(item.PLANEREG, 7)
+                .arg(QString(TAKstr), 1)
+                .arg(QString((QChar)item.BI));
 
     if (disableReassembly) {
-      out += QString("M=%1 ").arg(item.moretocome ? "1" : "0");
+      *out += QString("M=%1 ").arg(item.moretocome ? "1" : "0");
     }
 
-    out += QString("LBL=%1%2 %3")
-               .arg(QChar(item.LABEL[0]))
-               .arg(QChar(label1))
-               .arg(message);
-    return new QString(out);
+    *out += QString("LBL=%1%2 %3")
+                .arg(QChar(item.LABEL[0]))
+                .arg(QChar(label1))
+                .arg(message);
+    return out;
   } else {
     // NOTE: unreachable
     return nullptr;
