@@ -5,6 +5,7 @@
 #include "hunter.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
+#include <QAbstractSocket>
 #include <QList>
 #include <QObject>
 #include <QUrl>
@@ -14,10 +15,14 @@ enum OutputFormat { None, Text, Jaero, JsonDump };
 
 struct ForwardTarget {
   QUrl target;
+  QAbstractSocket *conn;
   OutputFormat format;
+  
+  ForwardTarget(const QUrl &url, OutputFormat fmt);
+  ~ForwardTarget();
 
-  ForwardTarget(const QUrl &url, OutputFormat fmt) : target(url), format(fmt) {}
-
+  void reconnect();
+  
   static ForwardTarget *fromRaw(const QString &raw);
 };
 
@@ -36,6 +41,7 @@ public:
 
 private:
   void parseForwarder(const QString &raw);
+  void reconnectForwarder();
   void publisherConsumer();
 
   const QList<int> validBitRates = {600, 1200, 10500};

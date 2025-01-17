@@ -33,6 +33,8 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
       label1 = 'd';
   }
 
+  QDateTime time = QDateTime::currentDateTimeUtc();
+
   if (fmt == OutputFormat::JsonDump || fmt == OutputFormat::Jaero) {
     QJsonObject root;
     QString message = item.message;
@@ -43,8 +45,6 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
     if (message.left(1) == "\n")
       message.remove(0, 1);
     message.replace("\n", "\n\t");
-
-    QDateTime time = QDateTime::currentDateTimeUtc();
 
     if (fmt == OutputFormat::JsonDump) {
       QJsonObject app;
@@ -129,21 +129,26 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
         .replace("\t", "\\t")
         .replace("\a", "\\a");
 
-    *out += QString("AES:%1 GES:%2 [%3] ACK=%4 BLK=%5 ")
+    *out += QString("%1 AES:%2 GES:%3")
+                .arg(time.toUTC().toString("yyyy-MM-ddThh:mm:ssZ"))
                 .arg(upperHex(item.isuitem.AESID, 6, 16, QChar('0')))
-                .arg(upperHex(item.isuitem.GESID, 6, 16, QChar('0')))
-                .arg(item.PLANEREG, 7)
-                .arg(QString(TAKstr), 1)
-                .arg(QString((QChar)item.BI));
+                .arg(upperHex(item.isuitem.GESID, 6, 16, QChar('0')));
 
-    if (disableReassembly) {
-      *out += QString("M=%1 ").arg(item.moretocome ? "1" : "0");
+    if (!item.nonacars) {
+      *out += QString(" [%1] ACK=%2 BLK=%3 ")
+                  .arg(item.PLANEREG, 7)
+                  .arg(QString(TAKstr), 1)
+                  .arg(QString((QChar)item.BI));
+
+      if (disableReassembly) {
+        *out += QString("M=%1 ").arg(item.moretocome ? "1" : "0");
+      }
+
+      *out += QString("LBL=%1%2 %3")
+                  .arg(QChar(item.LABEL[0]))
+                  .arg(QChar(label1))
+                  .arg(message);
     }
-
-    *out += QString("LBL=%1%2 %3")
-                .arg(QChar(item.LABEL[0]))
-                .arg(QChar(label1))
-                .arg(message);
     return out;
   } else {
     // NOTE: unreachable

@@ -22,6 +22,22 @@ OutputFormat parseOutputFormat(const QString &raw) {
   return OutputFormat::None;
 }
 
+ForwardTarget::ForwardTarget(const QUrl &url, OutputFormat fmt) : target(url), format(fmt) {
+  // TODO: implement me!
+  conn = nullptr;
+}
+
+ForwardTarget::~ForwardTarget() {
+  if (conn != nullptr) {
+    conn->disconnectFromHost();
+    delete conn;
+  }
+}
+
+void ForwardTarget::reconnect() {
+  // TODO: implement me
+}
+
 ForwardTarget *ForwardTarget::fromRaw(const QString &raw) {
   if (raw.isEmpty()) {
     return nullptr;
@@ -213,6 +229,10 @@ void Decoder::parseForwarder(const QString &raw) {
     forwarders.append(*target);
     delete target;
   }
+}
+
+void Decoder::reconnectForwarder() {
+  // TODO: implement me
 }
 
 void Decoder::publisherConsumer() {
