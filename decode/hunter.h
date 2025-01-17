@@ -18,8 +18,11 @@ public:
   
 public slots:
   void updatedSignalStatus(bool gotasignal);
-    
+  void handleDcd(bool dcd);
+     
 private:
+  bool lastDcd;
+  
   quint32 maxTries;
   quint32 fullScans;
   
@@ -32,6 +35,7 @@ private:
 signals:
   void newFreqCenter(double freq_center);
   void noSignalAfterScan();
+  void dcdChange(bool old_dcd, bool new_dcd);
 };
 
 #endif

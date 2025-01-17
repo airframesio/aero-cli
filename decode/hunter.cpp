@@ -5,9 +5,17 @@ SignalHunter::SignalHunter(quint32 maxTries, QObject *parent)
   this->maxTries = maxTries;
   this->fullScans = 0;
   this->iterationsSinceSignal = 0;
+  this->lastDcd = false;
 }
 
 SignalHunter::~SignalHunter() {}
+
+void SignalHunter::handleDcd(bool dcd) {
+  if (dcd != lastDcd) {
+    emit dcdChange(lastDcd, dcd);
+    lastDcd = dcd;
+  }  
+}
 
 void SignalHunter::updatedSignalStatus(bool gotasignal) {
   if (gotasignal) {

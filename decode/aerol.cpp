@@ -884,6 +884,7 @@ AeroL::AeroL(QObject *parent) : QObject(parent) {
   parserisu = new ParserISU(this);
   connect(parserisu, SIGNAL(ACARSsignal(ACARSItem &)), this,
           SIGNAL(ACARSsignal(ACARSItem &)));
+  connect(parserisu, SIGNAL(ACARSfragmentsignal(ACARSItem &)), this, SIGNAL(ACARSfragmentsignal(ACARSItem &)));
   connect(parserisu, SIGNAL(Errorsignal(QString &)), this,
           SIGNAL(Errorsignal(QString &)));
 

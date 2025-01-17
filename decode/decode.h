@@ -10,7 +10,7 @@
 #include <QUrl>
 #include <QtConcurrent>
 
-enum OutputFormat { None, Text, Jaero, JsonDump, JsonAero };
+enum OutputFormat { None, Text, Jaero, JsonDump };
 
 struct ForwardTarget {
   QUrl target;
@@ -32,6 +32,7 @@ public:
   ~Decoder();
 
   bool isRunning() const { return running; }
+  void setNoSignalExit(bool noSignalExit) { this->noSignalExit = noSignalExit; }
 
 private:
   void parseForwarder(const QString &raw);
@@ -45,6 +46,7 @@ private:
   void *volatile zmqContext;
   void *volatile zmqSub;
 
+  bool noSignalExit;
   bool burstMode;
   bool disableReassembly;
   int bitRate;
@@ -61,7 +63,7 @@ private:
   OqpskDemodulator *oqpskDemod;
 
   SignalHunter *hunter;
-  
+
 public slots:
   void run();
 
@@ -71,7 +73,7 @@ public slots:
 
   void handleNoSignalAfterFullScan();
   void handleNewFreqCenter(double freq_center);
-  
+  void handleDcdChange(bool old_state, bool new_state);
   void handleACARS(ACARSItem &item);
 
 signals:

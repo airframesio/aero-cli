@@ -4,8 +4,6 @@
 #include <QHostInfo>
 #include <QList>
 #include <QTimer>
-#include <qcommandlineoption.h>
-#include <qhostinfo.h>
 
 #include "decode.h"
 #include "logger.h"
@@ -14,6 +12,7 @@
 int main(int argc, char *argv[]) {
   QCoreApplication core(argc, argv);
   QCoreApplication::setApplicationName("aero-decode");
+  QCoreApplication::setApplicationVersion("0.0.1");
 
   QCommandLineParser parser;
   parser.setApplicationDescription(
@@ -44,8 +43,11 @@ int main(int argc, char *argv[]) {
   parser.addOption(
       QCommandLineOption("format",
                          "ACARS format type to display on console; valid: "
-                         "jaero, jsondump, jsonaero, text (default)",
+                         "jaero, jsondump, text (default)",
                          "format"));
+  parser.addOption(QCommandLineOption(
+      "no-signal-exit",
+      "Exit if no signal is found after a full scan of a VFO"));
   parser.process(core);
 
   if (parser.isSet("verbose")) {
@@ -58,7 +60,7 @@ int main(int argc, char *argv[]) {
 
   QString format = parser.value("format");
   QString station_id = parser.value("station-id");
-  
+
   int bitRate = parser.value("bit-rate").toInt();
 
   bool burstMode = parser.isSet("burst");
@@ -71,10 +73,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (station_id.isEmpty()) {
-    station_id = QString("%1-AERO-INMARSAT").arg(QHostInfo::localHostName().toUpper());
-    WARN("No station ID provided, using generated default %s", station_id.toStdString().c_str());
+    station_id =
+        QString("%1-AERO-INMARSAT").arg(QHostInfo::localHostName().toUpper());
+    WARN("No station ID provided, using generated default %s",
+         station_id.toStdString().c_str());
   }
-  
+
   if (topic.isEmpty()) {
     CRIT("Required topic option is missing, example: -t VFO51");
     return 1;
@@ -87,6 +91,7 @@ int main(int argc, char *argv[]) {
   EventNotifier notifier;
   Decoder decoder(station_id, publisher, topic, format, bitRate, burstMode,
                   rawForwarders, disableReassembly);
+  decoder.setNoSignalExit(parser.isSet("no-signal-exit"));
 
   QObject::connect(&notifier, SIGNAL(hangup()), &decoder, SLOT(handleHup()));
   QObject::connect(&notifier, SIGNAL(interrupt()), &decoder,

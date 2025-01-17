@@ -1,7 +1,10 @@
+#include <QByteArray>
+#include <QJsonDocument>
 #include <zmq.h>
 
 #include "aerol.h"
 #include "decode.h"
+#include "output.h"
 #include "logger.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
@@ -15,8 +18,6 @@ OutputFormat parseOutputFormat(const QString &raw) {
     return OutputFormat::Jaero;
   if (norm == "jsondump")
     return OutputFormat::JsonDump;
-  if (norm == "jsonaero")
-    return OutputFormat::JsonAero;
 
   return OutputFormat::None;
 }
@@ -105,7 +106,8 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   aerol = new AeroL(this);
   aerol->setBitRate(this->bitRate);
   aerol->setBurstmode(this->burstMode);
-  // TODO: setDoNotDisplay?
+  // TODO: do we want to display ISU messages? if so, make sure to
+  //       setDoNotDisplay to ignore spammy messages
 
   MskDemodulator::Settings mskSettings;
   mskSettings.zmqAudio = true;
@@ -138,7 +140,7 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
     hunter->setParams(0, 25000, 10500);
 
     // TODO: support burst mode
-    
+
     connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
             oqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
     connect(oqpskDemod,
@@ -154,7 +156,7 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
     hunter->setParams(0, 6000, 900);
 
     // TODO: support burst mode
-    
+
     connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)), mskDemod,
             SLOT(dataReceived(const QByteArray &, quint32)));
     connect(mskDemod,
@@ -166,6 +168,11 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
             SLOT(CenterFreqChangedSlot(double)));
   }
 
+  connect(aerol, SIGNAL(DataCarrierDetect(bool)), hunter,
+          SLOT(handleDcd(bool)));
+  connect(hunter, SIGNAL(dcdChange(bool, bool)), this,
+          SLOT(handleDcdChange(bool, bool)));
+
   if (this->disableReassembly) {
     DBG("Reassembly disabled, connecting to ACARSfragmentsignal signal");
     connect(aerol, SIGNAL(ACARSfragmentsignal(ACARSItem &)), this,
@@ -175,6 +182,8 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
     connect(aerol, SIGNAL(ACARSsignal(ACARSItem &)), this,
             SLOT(handleACARS(ACARSItem &)));
   }
+
+  // TODO: setup forwarders
 
   running = true;
 }
@@ -215,6 +224,10 @@ void Decoder::publisherConsumer() {
   unsigned char rateBuf[4] = {0};
   char *samplesBuf = nullptr;
 
+  const std::string publisherUrl = publisher.toStdString();
+  const std::string topicName = topic.toStdString();
+  int topicNameSize = ::strlen(topicName.c_str());
+
   if (!running)
     goto Exit;
 
@@ -224,7 +237,9 @@ void Decoder::publisherConsumer() {
     goto Exit;
   }
 
-  status = ::zmq_connect(zmqSub, publisher.toStdString().c_str());
+  DBG("Connecting to ZMQ endpoint at %s", publisherUrl.c_str());
+
+  status = ::zmq_connect(zmqSub, publisherUrl.c_str());
   if (status == -1) {
     CRIT("Failed to connect to publisher, error code: %d; is aero-publish or "
          "SDRReceiver running?",
@@ -232,13 +247,17 @@ void Decoder::publisherConsumer() {
     goto Exit;
   }
 
+  DBG("Subscribing to ZMQ topic %s", topicName.c_str());
+
   status =
-      ::zmq_setsockopt(zmqSub, ZMQ_SUBSCRIBE, topic.toStdString().c_str(), 5);
+      ::zmq_setsockopt(zmqSub, ZMQ_SUBSCRIBE, topicName.c_str(), topicNameSize);
   if (status == -1) {
     CRIT("Failed to subscribe to %s; error code = %d",
          topic.toStdString().c_str(), zmq_errno());
     goto Exit;
   }
+
+  DBG("Listening for samples...");
 
   while (running) {
     while (((recvSize = ::zmq_recv(zmqSub, nullptr, 0, ZMQ_DONTWAIT)) < 0) &&
@@ -278,25 +297,37 @@ Exit:
 }
 
 void Decoder::handleNoSignalAfterFullScan() {
-  WARN("Completed full VFO scan and could not lock into a signal. Are you sure "
-       "the ZMQ topic is transmitting?");
-  running = false;
+  WARN("Scanned entire VFO bandwidth and could not find a signal.");
+
+  if (noSignalExit) {
+    WARN("Please confirm and verify that the specified topic is correct and "
+         "that aero-publish is using correct settings")
+    running = false;
+    FATAL("Exiting because of no signal");
+  }
+}
+
+void Decoder::handleDcdChange(bool old_state, bool new_state) {
+  if (new_state) {
+    DBG("Data carrier detected: no signal => signal");
+  } else {
+    DBG("Data carrier lost: signal => no signal");
+  }
 }
 
 void Decoder::handleNewFreqCenter(double freq_center) {
+  DBG("Trying frequency center %.2f in search of signal", freq_center);
 }
 
 void Decoder::handleACARS(ACARSItem &item) {
-  auto label = item.LABEL;
-  if (label[1] == (char)127)
-    label[1] = '?';
+  QString *output = toOutputFormat(format, station_id, disableReassembly, item);
+  if (output == nullptr) {
+    CRIT("Failed to generate output format!");
+    return;
+  }
 
-  INF("AES:%08x GES:%08x [%7s] ACK=%s BLK=%c C=%d LBL=%2s %s",
-      item.isuitem.AESID, item.isuitem.GESID,
-      item.PLANEREG.toStdString().c_str(),
-      std::string({item.TAK ? (char)'?' : (char)item.TAK}).c_str(), item.BI,
-      item.moretocome ? 1 : 0, label.toStdString().c_str(),
-      item.message.remove("\n").remove("\r").toStdString().c_str());
+  INF("%s", output->toStdString().c_str());
+  delete output;
 }
 
 void Decoder::handleHup() {

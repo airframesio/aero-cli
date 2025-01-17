@@ -855,6 +855,7 @@ public:
   ~AeroL();
 signals:
   void DataCarrierDetect(bool status);
+  void ACARSfragmentsignal(ACARSItem &acarsitem);
   void ACARSsignal(ACARSItem &acarsitem);
   void Errorsignal(QString &error);
   void Voicesignal(QByteArray &data, QString &hex);
