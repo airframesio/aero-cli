@@ -26,9 +26,12 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
   if (item.TAK == 0x15)
     TAKstr = ((QString) "!").toLatin1();
 
-  uchar label1 = item.LABEL[1];
-  if ((uchar)item.LABEL[1] == 127)
-    label1 = 'd';
+  uchar label1 = ' ';
+  if (item.LABEL.size() > 1) {
+    label1 = item.LABEL[1];
+    if ((uchar)item.LABEL[1] == 127)
+      label1 = 'd';
+  }
 
   if (fmt == OutputFormat::JsonDump || fmt == OutputFormat::Jaero) {
     QJsonObject root;
