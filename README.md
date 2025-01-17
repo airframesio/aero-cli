@@ -8,11 +8,11 @@
 TBA
 
 ## TODO
--[ ] Implement test harness that streams audio from audio-out into a ZeroMQ topic for samples testing
--[x] Cut out plane registration database code from AeroL
--[ ] Implement ACARS frame forwarding functionality
--[x] Implement translation of ACARSItem to JSON
--[ ] Long term test to ensure processor and memory usage is within expectations
+[ ] Implement test harness that streams audio from audio-out into a ZeroMQ topic for samples testing
+[x] Cut out plane registration database code from AeroL
+[ ] Implement ACARS frame forwarding functionality
+[x] Implement translation of ACARSItem to JSON
+[ ] Long term test to ensure processor and memory usage is within expectations
 
 ## Requirements
 Other configurations not mentioned may work but below is the configuration used for development and testing:
