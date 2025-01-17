@@ -15,19 +15,24 @@ class Publisher : public QObject {
 public:
   Publisher(const QString &deviceStr, bool enableBiast, bool enableDcc,
             const QString &settingsPath, QObject *parent = nullptr);
+  Publisher(const Publisher &) = delete;
+  Publisher(Publisher &&) noexcept = delete;
   ~Publisher();
 
-  bool isRunning() const { return running; }
+  Publisher &operator=(const Publisher &) = delete;
+  Publisher &operator=(Publisher &&) noexcept = delete;
   
+  bool isRunning() const { return running; }
+
 private:
   bool loadSettings(const QString &settingsPath);
   void readerThread();
   void demodData(const float *data, int len);
-  
+
   const QList<int> validSampleRates = {288000, 1536000, 1920000};
-  
+
   QFuture<void> mainReader;
-  
+
   bool running;
   bool enableBiast;
   bool enableDcc;
@@ -37,7 +42,7 @@ private:
   int tuner_gain;
   int tuner_gain_idx;
   int tuner_idx;
-  
+
   int buflen;
 
   int nVFO;
@@ -49,14 +54,14 @@ private:
 
   SoapySDR::Device *device;
   SoapySDR::Stream *stream;
-  
+
 public slots:
   void run();
 
   void handleHup();
   void handleInterrupt();
   void handleTerminate();
-  
+
 signals:
   void completed();
 };

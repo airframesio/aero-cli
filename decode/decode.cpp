@@ -1,13 +1,16 @@
 #include <QByteArray>
+#include <QHostAddress>
 #include <QJsonDocument>
+#include <QTcpSocket>
+#include <QUdpSocket>
 #include <zmq.h>
 
 #include "aerol.h"
 #include "decode.h"
-#include "output.h"
 #include "logger.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
+#include "output.h"
 
 OutputFormat parseOutputFormat(const QString &raw) {
   QString norm = raw.toLower();
@@ -22,20 +25,27 @@ OutputFormat parseOutputFormat(const QString &raw) {
   return OutputFormat::None;
 }
 
-ForwardTarget::ForwardTarget(const QUrl &url, OutputFormat fmt) : target(url), format(fmt) {
-  // TODO: implement me!
-  conn = nullptr;
+ForwardTarget::ForwardTarget(const QUrl &url, OutputFormat fmt)
+    : target(url), format(fmt) {
+  QString scheme = target.scheme().toLower();
+  if (scheme == "tcp") {
+    conn = new QTcpSocket();
+  } else {
+    conn = new QUdpSocket();
+  }
+
+  reconnect();
 }
 
 ForwardTarget::~ForwardTarget() {
   if (conn != nullptr) {
-    conn->disconnectFromHost();
-    delete conn;
+    conn->deleteLater();
+    conn = nullptr;
   }
 }
 
 void ForwardTarget::reconnect() {
-  // TODO: implement me
+  conn->connectToHost(QHostAddress(target.host()), target.port());
 }
 
 ForwardTarget *ForwardTarget::fromRaw(const QString &raw) {
@@ -72,6 +82,16 @@ ForwardTarget *ForwardTarget::fromRaw(const QString &raw) {
   if (scheme != "tcp" && scheme != "udp") {
     CRIT("Forwarding target scheme is unsupported: %s",
          scheme.toStdString().c_str());
+    return nullptr;
+  }
+
+  if (url.host().isEmpty()) {
+    CRIT("Forwarding target URL is missing host");
+    return nullptr;
+  }
+
+  if (url.port() == -1) {
+    CRIT("Forwarding target URL is missing port");
     return nullptr;
   }
 
@@ -199,12 +219,16 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
             SLOT(handleACARS(ACARSItem &)));
   }
 
-  // TODO: setup forwarders
-
   running = true;
 }
 
 Decoder::~Decoder() {
+  for (auto target : forwarders) {
+    if (target != nullptr) {
+      delete target;
+    }
+  }
+
   if (zmqSub != nullptr) {
     ::zmq_close(zmqSub);
   }
@@ -226,13 +250,18 @@ void Decoder::parseForwarder(const QString &raw) {
       continue;
     }
 
-    forwarders.append(*target);
-    delete target;
+    forwarders.append(target);
   }
 }
 
 void Decoder::reconnectForwarder() {
-  // TODO: implement me
+  for (auto target : forwarders) {
+    if (target != nullptr) {
+      DBG("Reconnecting forwarder to %s",
+          target->target.toDisplayString().toStdString().c_str());
+      target->reconnect();
+    }
+  }
 }
 
 void Decoder::publisherConsumer() {
@@ -348,12 +377,26 @@ void Decoder::handleACARS(ACARSItem &item) {
 
   INF("%s", output->toStdString().c_str());
   delete output;
+
+  for (auto target : forwarders) {
+    if (target != nullptr && target->conn != nullptr) {
+      QString *output =
+          toOutputFormat(target->format, station_id, disableReassembly, item);
+      if (output != nullptr) {
+        *output += "\n";
+        target->conn->write(output->toLatin1());
+        delete output;
+      }
+    }
+  }
 }
 
 void Decoder::handleHup() {
   DBG("Got SIGHUP signal from EventNotifier");
 
   // TODO: do debug dump?
+
+  reconnectForwarder();
 }
 
 void Decoder::handleInterrupt() {

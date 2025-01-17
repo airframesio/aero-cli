@@ -19,8 +19,13 @@ struct ForwardTarget {
   OutputFormat format;
   
   ForwardTarget(const QUrl &url, OutputFormat fmt);
+  ForwardTarget(const ForwardTarget &) = delete;
+  ForwardTarget(ForwardTarget &&) noexcept = delete;
   ~ForwardTarget();
 
+  ForwardTarget &operator=(const ForwardTarget &) = delete;
+  ForwardTarget &operator=(ForwardTarget &&) noexcept = delete;
+  
   void reconnect();
   
   static ForwardTarget *fromRaw(const QString &raw);
@@ -34,8 +39,13 @@ public:
           const QString &topic, const QString &format, int bitRate,
           bool burstMode, const QString &rawForwarders, bool disableReassembly,
           QObject *parent = nullptr);
+  Decoder(const Decoder &) = delete;
+  Decoder(Decoder &&) noexcept = delete;
   ~Decoder();
 
+  Decoder &operator=(const Decoder &) = delete;
+  Decoder &operator=(Decoder &&) noexcept = delete;
+  
   bool isRunning() const { return running; }
   void setNoSignalExit(bool noSignalExit) { this->noSignalExit = noSignalExit; }
 
@@ -62,7 +72,7 @@ private:
   QString topic;
   OutputFormat format;
 
-  QList<ForwardTarget> forwarders;
+  QList<ForwardTarget *> forwarders;
 
   AeroL *aerol;
   MskDemodulator *mskDemod;
