@@ -12,106 +12,20 @@
 #include "oqpskdemodulator.h"
 #include "output.h"
 
-OutputFormat parseOutputFormat(const QString &raw) {
-  QString norm = raw.toLower();
-
-  if (norm == "text")
-    return OutputFormat::Text;
-  if (norm == "jaero")
-    return OutputFormat::Jaero;
-  if (norm == "jsondump")
-    return OutputFormat::JsonDump;
-
-  return OutputFormat::None;
-}
-
-ForwardTarget::ForwardTarget(const QUrl &url, OutputFormat fmt)
-    : target(url), format(fmt) {
-  QString scheme = target.scheme().toLower();
-  if (scheme == "tcp") {
-    conn = new QTcpSocket();
-  } else {
-    conn = new QUdpSocket();
-  }
-
-  reconnect();
-}
-
-ForwardTarget::~ForwardTarget() {
-  if (conn != nullptr) {
-    conn->deleteLater();
-    conn = nullptr;
-  }
-}
-
-void ForwardTarget::reconnect() {
-  conn->connectToHost(QHostAddress(target.host()), target.port());
-}
-
-ForwardTarget *ForwardTarget::fromRaw(const QString &raw) {
-  if (raw.isEmpty()) {
-    return nullptr;
-  }
-
-  QStringList tokens = raw.split("=");
-  if (tokens.size() != 2) {
-    CRIT("Malformed forwarding target syntax: %s", raw.toStdString().c_str());
-    return nullptr;
-  }
-
-  OutputFormat fmt = parseOutputFormat(tokens[0]);
-  if (fmt == OutputFormat::None) {
-    CRIT("Forwarding target format is invalid: %s",
-         tokens[0].toStdString().c_str());
-    return nullptr;
-  }
-
-  if (tokens[1].isEmpty()) {
-    CRIT("Forwarding target URL is empty");
-    return nullptr;
-  }
-
-  QUrl url(tokens[1]);
-  if (!url.isValid()) {
-    CRIT("Forwarding target URL is invalid: %s",
-         tokens[1].toStdString().c_str());
-    return nullptr;
-  }
-
-  QString scheme = url.scheme().toLower();
-  if (scheme != "tcp" && scheme != "udp") {
-    CRIT("Forwarding target scheme is unsupported: %s",
-         scheme.toStdString().c_str());
-    return nullptr;
-  }
-
-  if (url.host().isEmpty()) {
-    CRIT("Forwarding target URL is missing host");
-    return nullptr;
-  }
-
-  if (url.port() == -1) {
-    CRIT("Forwarding target URL is missing port");
-    return nullptr;
-  }
-
-  return new ForwardTarget(url, fmt);
-}
-
 Decoder::Decoder(const QString &station_id, const QString &publisher,
                  const QString &topic, const QString &format, int bitRate,
                  bool burstMode, const QString &rawForwarders,
                  bool disableReassembly, QObject *parent)
     : QObject(parent) {
   this->publisher = publisher;
-  this->station_id = station_id;
+  this->stationId = station_id;
   this->topic = topic;
   this->bitRate = bitRate;
   this->burstMode = burstMode;
   this->disableReassembly = disableReassembly;
   this->format = parseOutputFormat(format);
 
-  running = false;
+  running.storeRelease(0);
 
   if (!validBitRates.contains(this->bitRate)) {
     CRIT("Unsupported bit rate: %d", this->bitRate);
@@ -124,7 +38,11 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   }
 
   if (!rawForwarders.isEmpty()) {
-    parseForwarder(rawForwarders);
+    if (!parseForwarder(rawForwarders)) {
+      CRIT("Some forwarders configuration may be malformed: %s",
+           rawForwarders.toStdString().c_str());
+      return;
+    }
   }
 
   zmqContext = ::zmq_ctx_new();
@@ -219,7 +137,7 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
             SLOT(handleACARS(ACARSItem &)));
   }
 
-  running = true;
+  running.storeRelease(1);
 }
 
 Decoder::~Decoder() {
@@ -241,27 +159,22 @@ Decoder::~Decoder() {
 void Decoder::run() {
   DBG("Starting concurrent publishing consumer thread");
   consumerThread = QtConcurrent::run([this] { publisherConsumer(); });
+
+  DBG("Starting concurrent forwarder consumer thread");
+  forwarderThread = QtConcurrent::run([this] { forwarderConsumer(); });
 }
 
-void Decoder::parseForwarder(const QString &raw) {
+bool Decoder::parseForwarder(const QString &raw) {
   for (const auto &rawTarget : raw.split(",")) {
     ForwardTarget *target = ForwardTarget::fromRaw(rawTarget);
     if (target == nullptr) {
-      continue;
+      return false;
     }
 
     forwarders.append(target);
   }
-}
 
-void Decoder::reconnectForwarder() {
-  for (auto target : forwarders) {
-    if (target != nullptr) {
-      DBG("Reconnecting forwarder to %s",
-          target->target.toDisplayString().toStdString().c_str());
-      target->reconnect();
-    }
-  }
+  return true;
 }
 
 void Decoder::publisherConsumer() {
@@ -277,7 +190,7 @@ void Decoder::publisherConsumer() {
   const std::string topicName = topic.toStdString();
   int topicNameSize = ::strlen(topicName.c_str());
 
-  if (!running)
+  if (!running.loadAcquire())
     goto Exit;
 
   samplesBuf = (char *)::malloc(bufSize * sizeof(char));
@@ -308,13 +221,13 @@ void Decoder::publisherConsumer() {
 
   DBG("Listening for samples...");
 
-  while (running) {
+  while (running.loadAcquire()) {
     while (((recvSize = ::zmq_recv(zmqSub, nullptr, 0, ZMQ_DONTWAIT)) < 0) &&
-           running) {
+           running.loadAcquire()) {
       ::usleep(10000);
     }
 
-    if (!running)
+    if (!running.loadAcquire())
       break;
 
     recvSize = ::zmq_recv(zmqSub, rateBuf, sizeof(rateBuf), ZMQ_DONTWAIT);
@@ -322,13 +235,13 @@ void Decoder::publisherConsumer() {
       continue;
     }
 
-    if (!running)
+    if (!running.loadAcquire())
       break;
 
     ::memcpy(&sampleRate, rateBuf, sizeof(sampleRate));
 
     recvSize = ::zmq_recv(zmqSub, samplesBuf, bufSize, ZMQ_DONTWAIT);
-    if (!running)
+    if (!running.loadAcquire())
       break;
 
     if (recvSize >= 0) {
@@ -342,7 +255,41 @@ Exit:
     ::free(samplesBuf);
   }
 
+  forwarderThread.waitForFinished();
+
   emit completed();
+}
+
+void Decoder::forwarderConsumer() {
+  for (auto target : forwarders) {
+    if (target != nullptr) {
+      target->reconnect();
+    }
+  }
+
+  while (running.loadAcquire()) {
+    sendBufferRwLock.lockForRead();
+    if (sendBuffer.isEmpty()) {
+      sendBufferCondition.wait(&sendBufferRwLock);
+    }
+
+    ACARSItem item = sendBuffer.front();
+    sendBuffer.pop_front();
+    sendBufferRwLock.unlock();
+
+    for (auto target : forwarders) {
+      if (target != nullptr) {
+        QString *out = toOutputFormat(target->getFormat(), stationId,
+                                      disableReassembly, item);
+        if (out != nullptr) {
+          *out += "\n";
+
+          target->send(out->toLatin1());
+          delete out;
+        }
+      }
+    }
+  }
 }
 
 void Decoder::handleNoSignalAfterFullScan() {
@@ -351,7 +298,7 @@ void Decoder::handleNoSignalAfterFullScan() {
   if (noSignalExit) {
     WARN("Please confirm and verify that the specified topic is correct and "
          "that aero-publish is using correct settings")
-    running = false;
+    running.storeRelease(0);
     FATAL("Exiting because of no signal");
   }
 }
@@ -369,7 +316,7 @@ void Decoder::handleNewFreqCenter(double freq_center) {
 }
 
 void Decoder::handleACARS(ACARSItem &item) {
-  QString *output = toOutputFormat(format, station_id, disableReassembly, item);
+  QString *output = toOutputFormat(format, stationId, disableReassembly, item);
   if (output == nullptr) {
     CRIT("Failed to generate output format!");
     return;
@@ -378,33 +325,24 @@ void Decoder::handleACARS(ACARSItem &item) {
   INF("%s", output->toStdString().c_str());
   delete output;
 
-  for (auto target : forwarders) {
-    if (target != nullptr && target->conn != nullptr) {
-      QString *output =
-          toOutputFormat(target->format, station_id, disableReassembly, item);
-      if (output != nullptr) {
-        *output += "\n";
-        target->conn->write(output->toLatin1());
-        delete output;
-      }
-    }
-  }
+  sendBufferRwLock.lockForWrite();
+  sendBuffer.push_back(item);
+  sendBufferCondition.wakeAll();
+  sendBufferRwLock.unlock();
 }
 
 void Decoder::handleHup() {
   DBG("Got SIGHUP signal from EventNotifier");
 
   // TODO: do debug dump?
-
-  reconnectForwarder();
 }
 
 void Decoder::handleInterrupt() {
   DBG("Got SIGINT signal from EventNotifier");
-  running = false;
+  running.storeRelease(0);
 }
 
 void Decoder::handleTerminate() {
   DBG("Got SIGTERM signal from EventNotifier");
-  running = false;
+  running.storeRelease(0);
 }

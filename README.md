@@ -5,12 +5,20 @@
 [![Activity](https://img.shields.io/github/commit-activity/m/airframesio/aero-cli)](https://github.com/airframesio/aero-cli/pulse)
 [![Discord](https://img.shields.io/discord/1067697487927853077?logo=discord)](https://discord.gg/8Ksch7zE)
 
-TBA
+
+## Example
+```bash
+aero-publish -d driver=rtlsdr --enable-biast sdr_54W_all.ini
+```
+
+```bash
+aero-decode -v -p tcp://127.0.0.1:6004 -t VFO52 -b 10500 -f jsondump=tcp://127.0.0.1:4444
+```
 
 ## TODO
 - [ ] Implement test harness that streams audio from audio-out into a ZeroMQ topic for samples testing
 - [x] Cut out plane registration database code from AeroL
-- [ ] Implement ACARS frame forwarding functionality
+- [x] Implement ACARS frame forwarding functionality
 - [x] Implement translation of ACARSItem to JSON
 - [ ] Long term test to ensure processor and memory usage is within expectations
 

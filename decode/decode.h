@@ -2,34 +2,17 @@
 #define DECODE_H
 
 #include "aerol.h"
+#include "forwarder.h"
 #include "hunter.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
-#include <QAbstractSocket>
+#include <QByteArray>
 #include <QList>
 #include <QObject>
+#include <QReadWriteLock>
 #include <QUrl>
+#include <QWaitCondition>
 #include <QtConcurrent>
-
-enum OutputFormat { None, Text, Jaero, JsonDump };
-
-struct ForwardTarget {
-  QUrl target;
-  QAbstractSocket *conn;
-  OutputFormat format;
-  
-  ForwardTarget(const QUrl &url, OutputFormat fmt);
-  ForwardTarget(const ForwardTarget &) = delete;
-  ForwardTarget(ForwardTarget &&) noexcept = delete;
-  ~ForwardTarget();
-
-  ForwardTarget &operator=(const ForwardTarget &) = delete;
-  ForwardTarget &operator=(ForwardTarget &&) noexcept = delete;
-  
-  void reconnect();
-  
-  static ForwardTarget *fromRaw(const QString &raw);
-};
 
 class Decoder : public QObject {
   Q_OBJECT
@@ -50,15 +33,21 @@ public:
   void setNoSignalExit(bool noSignalExit) { this->noSignalExit = noSignalExit; }
 
 private:
-  void parseForwarder(const QString &raw);
-  void reconnectForwarder();
+  bool parseForwarder(const QString &raw);
   void publisherConsumer();
+  void forwarderConsumer();
 
   const QList<int> validBitRates = {600, 1200, 10500};
 
   QFuture<void> consumerThread;
-  bool running;
+  QFuture<void> forwarderThread;
 
+  QList<ACARSItem> sendBuffer;
+  QReadWriteLock sendBufferRwLock;
+  QWaitCondition sendBufferCondition;
+  
+  QAtomicInt running;
+  
   void *volatile zmqContext;
   void *volatile zmqSub;
 
@@ -68,12 +57,12 @@ private:
   int bitRate;
 
   QString publisher;
-  QString station_id;
+  QString stationId;
   QString topic;
   OutputFormat format;
 
   QList<ForwardTarget *> forwarders;
-
+  
   AeroL *aerol;
   MskDemodulator *mskDemod;
   OqpskDemodulator *oqpskDemod;
