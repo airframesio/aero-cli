@@ -41,6 +41,8 @@ void ForwardTarget::reconnect() {
   addrinfo *servinfo = nullptr;
   addrinfo *p = nullptr;
 
+  DBG("Attempting to connect to forwarder target %s", target.toString().toStdString().c_str());
+  
   if (servinfo != nullptr) {
     ::freeaddrinfo(servinfo);
     servinfo = nullptr;
@@ -83,9 +85,9 @@ void ForwardTarget::reconnect() {
 
 Exit:
   if (connfd == -1) {
-    DBG("Failed to connect to forwarder target %s", target.toString().toStdString().c_str());
+    DBG("Failed to connect to forwarder target");
   } else {
-    DBG("Connected to forwarder target %s", target.toString().toStdString().c_str());
+    DBG("Connected to forwarder target");
   }
 }
 
@@ -107,6 +109,11 @@ int ForwardTarget::sendFrame(const QByteArray &data) {
 void ForwardTarget::send(const QByteArray &data) {
   DBG("Attempting to send %lld bytes to forwarding target %s", data.size(), target.toString().toStdString().c_str());
 
+  if (connfd == -1) {
+    DBG("Invalid socket detected, attempting reconnect");
+    reconnect();  
+  }
+  
   int bytesWritten = sendFrame(data);
   if (bytesWritten == -1) {
     reconnect();

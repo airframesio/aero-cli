@@ -7,6 +7,7 @@
 
 #include "aerol.h"
 #include "decode.h"
+#include "forwarder.h"
 #include "logger.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
@@ -255,8 +256,10 @@ Exit:
     ::free(samplesBuf);
   }
 
+  DBG("Waiting for forwarder consumer to get the hint to exit");
   forwarderThread.waitForFinished();
 
+  DBG("Forwarder consumer exited");
   emit completed();
 }
 
@@ -270,9 +273,22 @@ void Decoder::forwarderConsumer() {
   while (running.loadAcquire()) {
     sendBufferRwLock.lockForRead();
     if (sendBuffer.isEmpty()) {
-      sendBufferCondition.wait(&sendBufferRwLock);
+      DBG("No items in sendBuffer, forwarder consumer waiting a second for next item add");
+      sendBufferCondition.wait(&sendBufferRwLock, QDeadlineTimer(MAX_CONNECTION_WAIT_MS));
+      if (!running.loadAcquire()) {
+        sendBufferRwLock.unlock();
+        break;
+      }
+
+      if (sendBuffer.isEmpty()) {
+        DBG("Still nothing, trying for another wait");
+        sendBufferRwLock.unlock();
+        continue;
+      }
     }
 
+    DBG("sendBuffer is populated with %lld items for processing", sendBuffer.size());
+    
     ACARSItem item = sendBuffer.front();
     sendBuffer.pop_front();
     sendBufferRwLock.unlock();
@@ -312,7 +328,7 @@ void Decoder::handleDcdChange(bool old_state, bool new_state) {
 }
 
 void Decoder::handleNewFreqCenter(double freq_center) {
-  DBG("Trying frequency center %.2f in search of signal", freq_center);
+  DBG("Trying frequency center %.1f in search of signal", freq_center);
 }
 
 void Decoder::handleACARS(ACARSItem &item) {
