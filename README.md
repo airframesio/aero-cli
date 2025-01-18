@@ -16,11 +16,12 @@ aero-decode -v -p tcp://127.0.0.1:6004 -t VFO52 -b 10500 -f jsondump=tcp://127.0
 ```
 
 ## TODO
-- [ ] Implement test harness that streams audio from audio-out into a ZeroMQ topic for samples testing
+- [ ] Implement test harness that streams audio from audio-out into a ZeroMQ topic for samples testing (mostly for burst mode)
 - [x] Cut out plane registration database code from AeroL
 - [x] Implement ACARS frame forwarding functionality
 - [x] Implement translation of ACARSItem to JSON
 - [ ] Long term test to ensure processor and memory usage is within expectations
+- [ ] libacars integration?
 
 ## Requirements
 Other configurations not mentioned may work but below is the configuration used for development and testing:
