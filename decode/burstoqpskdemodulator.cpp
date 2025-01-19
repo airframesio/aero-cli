@@ -137,8 +137,6 @@ BurstOqpskDemodulator::~BurstOqpskDemodulator() {
 
 void BurstOqpskDemodulator::setAFC(bool state) { afc = state; }
 
-void BurstOqpskDemodulator::setSQL(bool state) { sql = state; }
-
 void BurstOqpskDemodulator::setCPUReduce(bool state) { cpuReduce = state; }
 
 void BurstOqpskDemodulator::setScatterPointType(ScatterPointType type) {

@@ -46,7 +46,6 @@ public:
   explicit BurstOqpskDemodulator(QObject *parent);
   ~BurstOqpskDemodulator();
   void setAFC(bool state);
-  void setSQL(bool state);
   void setCPUReduce(bool state);
   void setSettings(Settings settings);
   void invalidatesettings();
@@ -77,7 +76,6 @@ private:
 
   QPointer<QIODevice> pdatasinkdevice;
   bool afc;
-  bool sql;
   int scatterpointtype;
 
   double Fs;

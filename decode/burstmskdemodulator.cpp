@@ -102,7 +102,6 @@ BurstMskDemodulator::BurstMskDemodulator(QObject *parent) : QObject(parent) {
 
 void BurstMskDemodulator::setAFC(bool state) { afc = state; }
 
-void BurstMskDemodulator::setSQL(bool state) { sql = state; }
 void BurstMskDemodulator::setCPUReduce(bool state) { cpuReduce = state; }
 void BurstMskDemodulator::setScatterPointType(ScatterPointType type) {
   scatterpointtype = type;

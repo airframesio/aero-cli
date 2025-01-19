@@ -54,7 +54,6 @@ public:
   void setSettings(Settings settings);
   void invalidatesettings();
   void setAFC(bool state);
-  void setSQL(bool state);
   void setCPUReduce(bool state);
   void setScatterPointType(ScatterPointType type);
   double getCurrentFreq();
@@ -62,8 +61,6 @@ public:
 private:
   WaveTable mixer_center;
   WaveTable mixer2;
-
-  bool sql;
 
   int spectrumnfft, bbnfft;
 
