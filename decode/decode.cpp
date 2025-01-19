@@ -5,12 +5,8 @@
 #include <QUdpSocket>
 #include <zmq.h>
 
-#include "aerol.h"
 #include "decode.h"
-#include "forwarder.h"
 #include "logger.h"
-#include "mskdemodulator.h"
-#include "oqpskdemodulator.h"
 #include "output.h"
 
 Decoder::Decoder(const QString &station_id, const QString &publisher,
@@ -64,6 +60,22 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   // TODO: do we want to display ISU messages? if so, make sure to
   //       setDoNotDisplay to ignore spammy messages
 
+  BurstMskDemodulator::Settings burstMskSettings;
+  burstMskSettings.zmqAudio = true;
+
+  burstMskDemod = new BurstMskDemodulator(this);
+  burstMskDemod->setAFC(true);
+  burstMskDemod->setCPUReduce(false);
+  burstMskDemod->setSettings(burstMskSettings);
+  
+  BurstOqpskDemodulator::Settings burstOqpskSettings;
+  burstOqpskSettings.zmqAudio = true;
+
+  burstOqpskDemod = new BurstOqpskDemodulator(this);
+  burstOqpskDemod->setAFC(true);
+  burstOqpskDemod->setCPUReduce(false);
+  burstOqpskDemod->setSettings(burstOqpskSettings);
+  
   MskDemodulator::Settings mskSettings;
   mskSettings.zmqAudio = true;
   mskSettings.freq_center = 0;

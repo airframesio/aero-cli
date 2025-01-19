@@ -32,3 +32,4 @@ Other configurations not mentioned may work but below is the configuration used 
 
 ## Credits
 * JAERO team
+* SDRReceiver team

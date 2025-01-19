@@ -8,12 +8,15 @@ add_executable(
   output.cpp 
   decode.cpp 
   forwarder.cpp
+  burstmskdemodulator.cpp
+  burstoqpskdemodulator.cpp
   mskdemodulator.cpp
   oqpskdemodulator.cpp
   DSP.cpp
   jfft.cpp
   coarsefreqestimate.cpp
   fftwrapper.cpp
+  fftrwrapper.cpp
   aerol.cpp
   jconvolutionalcodec.cpp
   databasetext.cpp

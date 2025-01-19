@@ -4,6 +4,8 @@
 #include "aerol.h"
 #include "forwarder.h"
 #include "hunter.h"
+#include "burstmskdemodulator.h"
+#include "burstoqpskdemodulator.h"
 #include "mskdemodulator.h"
 #include "oqpskdemodulator.h"
 #include <QByteArray>
@@ -64,6 +66,8 @@ private:
   QList<ForwardTarget *> forwarders;
   
   AeroL *aerol;
+  BurstMskDemodulator *burstMskDemod;
+  BurstOqpskDemodulator *burstOqpskDemod;
   MskDemodulator *mskDemod;
   OqpskDemodulator *oqpskDemod;
 
