@@ -62,12 +62,13 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
 
   BurstMskDemodulator::Settings burstMskSettings;
   burstMskSettings.zmqAudio = true;
+  burstMskSettings.Fs = 48000;
 
   burstMskDemod = new BurstMskDemodulator(this);
   burstMskDemod->setAFC(true);
   burstMskDemod->setCPUReduce(false);
   burstMskDemod->setSettings(burstMskSettings);
-  
+
   BurstOqpskDemodulator::Settings burstOqpskSettings;
   burstOqpskSettings.zmqAudio = true;
 
@@ -75,7 +76,7 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   burstOqpskDemod->setAFC(true);
   burstOqpskDemod->setCPUReduce(false);
   burstOqpskDemod->setSettings(burstOqpskSettings);
-  
+
   MskDemodulator::Settings mskSettings;
   mskSettings.zmqAudio = true;
   mskSettings.freq_center = 0;
@@ -96,43 +97,68 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   oqpskDemod->setSettings(oqpskSettings);
 
   hunter = new SignalHunter(15, this);
+
   connect(hunter, SIGNAL(newFreqCenter(double)), this,
           SLOT(handleNewFreqCenter(double)));
   connect(hunter, SIGNAL(noSignalAfterScan()), this,
           SLOT(handleNoSignalAfterFullScan()));
 
   if (this->bitRate > 1200) {
-    DBG("Connecting audioReceived signal to OQPSK demodulator");
-
     hunter->setParams(0, 25000, 10500);
 
-    // TODO: support burst mode
+    if (burstMode) {
+      DBG("Connecting audioReceived signal to burst OQPSK demodulator");
 
-    connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
-            oqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
-    connect(oqpskDemod,
-            SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
-            SLOT(processDemodulatedSoftBits(const QVector<short> &)));
-    connect(oqpskDemod, SIGNAL(SignalStatus(bool)), hunter,
-            SLOT(updatedSignalStatus(bool)));
-    connect(hunter, SIGNAL(newFreqCenter(double)), oqpskDemod,
-            SLOT(CenterFreqChangedSlot(double)));
+      connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
+              burstOqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
+      connect(burstOqpskDemod,
+              SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
+              SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+      connect(burstOqpskDemod, SIGNAL(SignalStatus(bool)), hunter,
+              SLOT(updatesSignalStatus(bool)));
+      connect(hunter, SIGNAL(newFreqCenter(double)), burstOqpskDemod,
+              SLOT(CenterFreqChangedSlot(double)));
+    } else {
+      DBG("Connecting audioReceived signal to OQPSK demodulator");
+
+      connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
+              oqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
+      connect(oqpskDemod,
+              SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
+              SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+      connect(oqpskDemod, SIGNAL(SignalStatus(bool)), hunter,
+              SLOT(updatedSignalStatus(bool)));
+      connect(hunter, SIGNAL(newFreqCenter(double)), oqpskDemod,
+              SLOT(CenterFreqChangedSlot(double)));
+    }
   } else {
-    DBG("Connecting audioReceived signal to MSK demodulator");
-
     hunter->setParams(0, 6000, 900);
 
-    // TODO: support burst mode
+    if (burstMode) {
+      DBG("Connecting audioReceived signal to burst MSK demodulator");
 
-    connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)), mskDemod,
-            SLOT(dataReceived(const QByteArray &, quint32)));
-    connect(mskDemod,
-            SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
-            SLOT(processDemodulatedSoftBits(const QVector<short> &)));
-    connect(mskDemod, SIGNAL(SignalStatus(bool)), hunter,
-            SLOT(updatedSignalStatus(bool)));
-    connect(hunter, SIGNAL(newFreqCenter(double)), mskDemod,
-            SLOT(CenterFreqChangedSlot(double)));
+      connect(this, SIGNAL(audioReceived(const QByteArrau &, quint32)),
+              burstMskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
+      connect(burstMskDemod,
+              SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
+              SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+      connect(burstMskDemod, SIGNAL(SignalStatus(bool)), hunter,
+              SLOT(updateSingalStatus(bool)));
+      connect(hunter, SIGNAL(newFreqCenter(double)), burstMskDemod,
+              SLOT(CenterFreqChangedSlot(double)));
+    } else {
+      DBG("Connecting audioReceived signal to MSK demodulator");
+
+      connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
+              mskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
+      connect(mskDemod,
+              SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
+              SLOT(processDemodulatedSoftBits(const QVector<short> &)));
+      connect(mskDemod, SIGNAL(SignalStatus(bool)), hunter,
+              SLOT(updatedSignalStatus(bool)));
+      connect(hunter, SIGNAL(newFreqCenter(double)), mskDemod,
+              SLOT(CenterFreqChangedSlot(double)));
+    }
   }
 
   connect(aerol, SIGNAL(DataCarrierDetect(bool)), hunter,
@@ -285,8 +311,10 @@ void Decoder::forwarderConsumer() {
   while (running.loadAcquire()) {
     sendBufferRwLock.lockForRead();
     if (sendBuffer.isEmpty()) {
-      DBG("No items in sendBuffer, forwarder consumer waiting a second for next item add");
-      sendBufferCondition.wait(&sendBufferRwLock, QDeadlineTimer(MAX_CONNECTION_WAIT_MS));
+      DBG("No items in sendBuffer, forwarder consumer waiting a second for "
+          "next item add");
+      sendBufferCondition.wait(&sendBufferRwLock,
+                               QDeadlineTimer(MAX_CONNECTION_WAIT_MS));
       if (!running.loadAcquire()) {
         sendBufferRwLock.unlock();
         break;
@@ -299,8 +327,9 @@ void Decoder::forwarderConsumer() {
       }
     }
 
-    DBG("sendBuffer is populated with %lld items for processing", sendBuffer.size());
-    
+    DBG("sendBuffer is populated with %lld items for processing",
+        sendBuffer.size());
+
     ACARSItem item = sendBuffer.front();
     sendBuffer.pop_front();
     sendBufferRwLock.unlock();
