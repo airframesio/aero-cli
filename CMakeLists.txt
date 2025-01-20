@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 COMPONENTS Concurrent Core Network)
+find_package(Qt6 COMPONENTS Concurrent Core Multimedia Network)
 find_package(PkgConfig)
 
 find_path(ZeroMQ_INCLUDE_DIR NAMES zmq.h PATHS ${PC_ZeroMQ_INCLUDE_DIRS})
@@ -20,3 +20,4 @@ find_file(COMMON_LOGGER_SOURCE_FILE logger.cpp ${COMMON_INCLUDE_DIR})
 
 add_subdirectory(decode)
 add_subdirectory(publish)
+add_subdirectory(audio-src)

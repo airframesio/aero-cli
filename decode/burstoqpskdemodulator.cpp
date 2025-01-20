@@ -682,7 +682,7 @@ void BurstOqpskDemodulator::writeDataSlot(const char *data, qint64 len) {
           // return the demodulated data (soft bit)
 
           if (RxDataBits.size() >= 32) {
-            if (!sql || mse < signalthreshold || lastmse < signalthreshold) {
+            if (mse < signalthreshold || lastmse < signalthreshold) {
 
               emit processDemodulatedSoftBits(RxDataBits);
             }
