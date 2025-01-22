@@ -18,6 +18,8 @@ void SignalHunter::handleDcd(bool dcd) {
 }
 
 void SignalHunter::updatedSignalStatus(bool gotasignal) {
+  if (!enabled) return;
+  
   if (gotasignal) {
     iterationsSinceSignal = 0;
   } else {

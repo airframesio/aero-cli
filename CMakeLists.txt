@@ -20,4 +20,3 @@ find_file(COMMON_LOGGER_SOURCE_FILE logger.cpp ${COMMON_INCLUDE_DIR})
 
 add_subdirectory(decode)
 add_subdirectory(publish)
-add_subdirectory(audio-src)

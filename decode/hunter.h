@@ -10,6 +10,9 @@ public:
   SignalHunter(quint32 maxTries, QObject *parent = nullptr);
   ~SignalHunter();
 
+  void enable() { enabled = true; }
+  void disable() { enabled = false; }
+
   void setParams(quint32 minFreq, quint32 maxFreq, quint32 bandwidth) {
     this->minFreq = minFreq;
     this->maxFreq = maxFreq;
@@ -21,6 +24,7 @@ public slots:
   void handleDcd(bool dcd);
      
 private:
+  bool enabled;
   bool lastDcd;
   
   quint32 maxTries;

@@ -109,13 +109,14 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
     if (burstMode) {
       DBG("Connecting audioReceived signal to burst OQPSK demodulator");
 
+      hunter->disable();
       connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
               burstOqpskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
       connect(burstOqpskDemod,
               SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
               SLOT(processDemodulatedSoftBits(const QVector<short> &)));
       connect(burstOqpskDemod, SIGNAL(SignalStatus(bool)), hunter,
-              SLOT(updatesSignalStatus(bool)));
+              SLOT(updatedSignalStatus(bool)));
       connect(hunter, SIGNAL(newFreqCenter(double)), burstOqpskDemod,
               SLOT(CenterFreqChangedSlot(double)));
     } else {
@@ -137,13 +138,14 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
     if (burstMode) {
       DBG("Connecting audioReceived signal to burst MSK demodulator");
 
-      connect(this, SIGNAL(audioReceived(const QByteArrau &, quint32)),
+      hunter->disable();
+      connect(this, SIGNAL(audioReceived(const QByteArray &, quint32)),
               burstMskDemod, SLOT(dataReceived(const QByteArray &, quint32)));
       connect(burstMskDemod,
               SIGNAL(processDemodulatedSoftBits(const QVector<short> &)), aerol,
               SLOT(processDemodulatedSoftBits(const QVector<short> &)));
       connect(burstMskDemod, SIGNAL(SignalStatus(bool)), hunter,
-              SLOT(updateSingalStatus(bool)));
+              SLOT(updatedSignalStatus(bool)));
       connect(hunter, SIGNAL(newFreqCenter(double)), burstMskDemod,
               SLOT(CenterFreqChangedSlot(double)));
     } else {

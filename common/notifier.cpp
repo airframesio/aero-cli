@@ -1,7 +1,7 @@
 #include <QDebug>
+#include <QSocketNotifier>
 
 #include <csignal>
-#include <qsocketnotifier.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
