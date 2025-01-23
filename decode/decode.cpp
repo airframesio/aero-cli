@@ -63,7 +63,9 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   BurstMskDemodulator::Settings burstMskSettings;
   burstMskSettings.zmqAudio = true;
   burstMskSettings.Fs = 48000;
-
+  burstMskSettings.fb = 1200;
+  burstMskSettings.lockingbw = 10500;
+  
   burstMskDemod = new BurstMskDemodulator(this);
   burstMskDemod->setAFC(true);
   burstMskDemod->setCPUReduce(false);
