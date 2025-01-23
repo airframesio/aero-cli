@@ -144,10 +144,18 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
         *out += QString("M=%1 ").arg(item.moretocome ? "1" : "0");
       }
 
-      *out += QString("LBL=%1%2 %3")
-                  .arg(QChar(item.LABEL[0]))
-                  .arg(QChar(label1))
-                  .arg(message);
+      *out += QString("LBL=%1%2 ").arg(QChar(item.LABEL[0])).arg(QChar(label1));
+
+      if (!message.isEmpty()) {
+        if (item.downlink) {
+          *out += QString("MSN=%1 FLT=%2 %3")
+                      .arg(message.mid(0, 4))
+                      .arg(message.mid(4, 6))
+                      .arg(message.mid(10));
+        } else {
+          *out += QString("%1").arg(message);
+        }
+      }
     }
     return out;
   } else {
