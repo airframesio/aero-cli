@@ -1,61 +1,43 @@
 #!/usr/bin/env python3
 
+import logging
 import sys
 import signal
 import socket
 import struct
 import zmq
 
-from PyQt5.QtCore import QCoreApplication, QIODevice, QObject, QSocketNotifier, QTimer, pyqtSignal
+from PyQt5.QtCore import QCommandLineOption, QCommandLineParser, QCoreApplication, QIODevice, QObject, QSocketNotifier, QTimer, pyqtSignal
 from PyQt5.QtMultimedia import QAudio, QAudioDeviceInfo, QAudioFormat, QAudioInput
 
-"""
-    parser = ArgumentParser()
-    parser.add_argument("--url", default="tcp://127.0.0.1:5555")
-    parser.add_argument(
-        "-n", "--count", default=10, type=int, help="number of arrays to send"
-    )
-    parser.add_argument(
-        "--size",
-        default=1024,
-        type=int,
-        help="size of the arrays to send (length of each dimension). Total size is size**nd",
-    )
-    parser.add_argument("--nd", default=2, type=int, help="number of dimensions")
-    args = parser.parse_args()
-    bind_to = args.url
-    ctx = zmq.Context()
-    s = ctx.socket(zmq.XPUB)
-    s.bind(bind_to)
-    print("Waiting for subscriber")
-    s.recv()
-    print("Sending arrays...")
-    shape = (args.size,) * args.nd
-    for i in range(args.count):
-        a = numpy.random.random(shape)
-        send_array(s, a)
-    s.send_json({"done": True})
-    print("   Done.")	
-"""
+
+logger = logging.getLogger("audio-publisher")
+
 
 class EventNotifier(QObject):
 	interrupt = pyqtSignal()
 	hangup = pyqtSignal()
+	terminate = pyqtSignal()
 	
 	sigintFd = (None, None)
 	sighupFd = (None, None)
-		
+	sigtermFd = (None, None)
+	
 	def __init__(self, parent: QObject = None):
 		QObject.__init__(self, parent)
 
 		EventNotifier.sigintFd = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM, 0)
 		EventNotifier.sighupFd = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-				
+		EventNotifier.sigtermFd = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+		
 		self.snInt = QSocketNotifier(EventNotifier.sigintFd[1].fileno(), QSocketNotifier.Read, self)
 		self.snInt.activated.connect(self.handleSigInt)
 
 		self.snHup = QSocketNotifier(EventNotifier.sighupFd[1].fileno(), QSocketNotifier.Read, self)
 		self.snHup.activated.connect(self.handleSigHup)
+
+		self.snTerm = QSocketNotifier(EventNotifier.sigtermFd[1].fileno(), QSocketNotifier.Read, self)
+		self.snTerm.activated.connect(self.handleSigTerm)
 		
 	def handleSigInt(self):
 		self.snInt.setEnabled(False)
@@ -66,7 +48,12 @@ class EventNotifier(QObject):
 		self.snHup.setEnabled(False)
 		self.hangup.emit()
 		self.snHup.setEnabled(True)
-		
+
+	def handleSigTerm(self):
+		self.snTerm.setEnabled(False)
+		self.terminate.emit()
+		self.snTerm.setEnabled(True)
+
 	@staticmethod
 	def sigintSignalHandler(*args):
 		EventNotifier.sigintFd[0].sendall(b"\x00")
@@ -74,19 +61,25 @@ class EventNotifier(QObject):
 	@staticmethod
 	def sighupSignalHandler(*args):
 		EventNotifier.sighupFd[0].sendall(b"\x00")
+
+	@staticmethod
+	def sigtermSignalHandler(*args):
+		EventNotifier.sigtermFd[0].sendall(b"\x00")
 		
 	@staticmethod
 	def setup():
 		signal.signal(signal.SIGINT, EventNotifier.sigintSignalHandler)
 		signal.signal(signal.SIGHUP, EventNotifier.sighupSignalHandler)
+		signal.signal(signal.SIGTERM, EventNotifier.sigtermSignalHandler)
 
 
 class AudioPublisher(QIODevice):
 	completed = pyqtSignal()
 	
-	def __init__(self, targetDevice: QAudioDeviceInfo, parent: QObject = None):
+	def __init__(self, targetDevice: QAudioDeviceInfo, bindUrl: str, topic: str, parent: QObject = None):
 		QIODevice.__init__(self, parent)
 
+		self.topic = topic
 		self.targetDevice = targetDevice
 		
 		self.targetFormat = QAudioFormat()
@@ -108,9 +101,8 @@ class AudioPublisher(QIODevice):
 		self.zmqPub.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)
 		self.zmqPub.setsockopt(zmq.RECONNECT_IVL, 1000)
 		self.zmqPub.setsockopt(zmq.RECONNECT_IVL_MAX, 0)
-		self.zmqPub.bind("tcp://*:6002")
-		
-		  
+		self.zmqPub.bind(bindUrl)
+				  
 	def start(self):
 		success = False
 
@@ -123,15 +115,15 @@ class AudioPublisher(QIODevice):
 			if not success:
 				self.completed.emit()
 			
-	def stop(self):
+	def stop(self) -> None:
 		self.targetInput.stop()
 		QIODevice.close(self)
 
-		print("Exiting...")
+		logger.info("Exiting...")
 		self.completed.emit()
 
 	def writeData(self, buf: bytes) -> int:
-		self.zmqPub.send(b"VFO00", zmq.SNDMORE)
+		self.zmqPub.send(self.topic.encode("utf-8"), zmq.SNDMORE)
 		self.zmqPub.send(struct.pack("<I", 48000), zmq.SNDMORE)
 		self.zmqPub.send(buf)
 		return len(buf)
@@ -139,28 +131,83 @@ class AudioPublisher(QIODevice):
 	def readData(self, *args, **kwargs) -> int:
 		return 0
 
-	def handleInterrupt(self):
+	def handleInterrupt(self) -> None:
 		self.stop()
-		print("SIGINT detected.")
+		logger.info("SIGINT detected.")
 
-	def handleHangup(self):
-		print("SIGHUP detected.")
+	def handleHangup(self) -> None:
+		logger.info("SIGHUP detected.")
+
+	def handleTerminate(self) -> None:
+		self.stop()
+		logger.info("SIGTERM detected.")
+
+
+def pickTargetDevice(name: str) -> QAudioDeviceInfo | None:
+	for dev in QAudioDeviceInfo.availableDevices(QAudio.AudioInput):
+		if dev.deviceName().lower() == name.lower():
+			return dev
+	return None
+
 
 if __name__ == "__main__":
+	QCoreApplication.setApplicationName("audio-publisher")
+	QCoreApplication.setApplicationVersion("0.0.1")
+	
 	app = QCoreApplication(sys.argv)
+	
+	parser = QCommandLineParser()
+	parser.addHelpOption()
+	parser.addOption(QCommandLineOption(["v", "verbose"], "Show verbose output"))
+	parser.addOption(QCommandLineOption(["d", "device"], "Audio device name to sample on", "device"))
+	parser.addOption(QCommandLineOption(["t", "topic"], "ZMQ topic name", "topic"))
+	parser.addOption(QCommandLineOption("list-inputs", "List all available audio inputs"))
+	parser.addPositionalArgument("bind_addr", "ZMQ bind address")
+	parser.process(app)
 
-	targetDevice = None
-	for dev in QAudioDeviceInfo.availableDevices(QAudio.AudioInput):
-		if dev.deviceName().endswith("monitor"):
-			targetDevice = dev
-			break
+	logging.basicConfig(level=logging.DEBUG if parser.isSet("verbose") else logging.INFO)
+
+	if parser.isSet("list-inputs"):
+		logger.info("Available audio input devices:")
+
+		items = 0
+		for dev in QAudioDeviceInfo.availableDevices(QAudio.AudioInput):
+			logger.info(f"  {dev.deviceName()}")
+			items += 1
+
+		if items == 0:
+			logger.warn("  None")
+			
+		sys.exit(0)
+	
+	args = parser.positionalArguments()
+	if len(args) == 0:
+		logger.error("Please provide a ZMQ bind address (example: tcp://*:6004)")
+		sys.exit(1)
+
+	topic = parser.value("topic")
+	if len(topic) == 0:
+		logger.error("Please provide a ZMQ topic name for the virtual audio sink VFO")
+		sys.exit(1)
+	
+	deviceName = parser.value("device")
+	if len(deviceName) == 0:
+		logger.error("Please provide an audio input device name")
+		sys.exit(1)
+		
+	targetDevice = pickTargetDevice(deviceName)
+	if targetDevice is None:
+		logger.error("Please choose a valid audio input device. Use --list-inputs to enumerate all available inputs")
+		sys.exit(1)
 
 	notifier = EventNotifier()
-	publisher = AudioPublisher(targetDevice)
+	publisher = AudioPublisher(targetDevice, args[0], topic)
 	
 	publisher.completed.connect(app.quit)
 	notifier.interrupt.connect(publisher.handleInterrupt)
 	notifier.hangup.connect(publisher.handleHangup)
+	notifier.terminate.connect(publisher.handleTerminate)
+	
 	QTimer.singleShot(0, publisher.start)
 
 	EventNotifier.setup()
