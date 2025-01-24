@@ -42,6 +42,17 @@ Unfortunately, the audio test harness requires Qt 5 in order to gain access to `
  * PyQt5 QtMultimedia
  * PyZMQ
 
+## Compiling
+
+```
+git clone https://github.com/airframesio/aero-cli.git
+cd aero-cli
+mkdir build && cd build
+cmake ..
+make
+make install
+```
+
 ## Credits
 * JAERO team
 * SDRReceiver team
