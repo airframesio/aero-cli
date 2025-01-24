@@ -18,8 +18,8 @@ OutputFormat parseOutputFormat(const QString &raw) {
 }
 
 ForwardTarget::ForwardTarget(const QUrl &url, OutputFormat fmt)
-    : QObject(nullptr), connfd(-1), servinfo(nullptr), activeinfo(nullptr),
-      target(url), format(fmt) {
+    : QObject(nullptr), target(url), connfd(-1), servinfo(nullptr),
+      activeinfo(nullptr), format(fmt) {
   scheme = url.scheme().toLower();
 }
 
@@ -40,8 +40,9 @@ void ForwardTarget::reconnect() {
   addrinfo hints = {0};
   addrinfo *p = nullptr;
 
-  DBG("Attempting to connect to forwarder target %s", target.toString().toStdString().c_str());
-  
+  DBG("Attempting to connect to forwarder target %s",
+      target.toString().toStdString().c_str());
+
   if (servinfo != nullptr) {
     ::freeaddrinfo(servinfo);
     servinfo = nullptr;
@@ -106,13 +107,14 @@ int ForwardTarget::sendFrame(const QByteArray &data) {
 }
 
 void ForwardTarget::send(const QByteArray &data) {
-  DBG("Attempting to send %lld bytes to forwarding target %s", data.size(), target.toString().toStdString().c_str());
+  DBG("Attempting to send %lld bytes to forwarding target %s", data.size(),
+      target.toString().toStdString().c_str());
 
   if (connfd == -1) {
     DBG("Invalid socket detected, attempting reconnect");
-    reconnect();  
+    reconnect();
   }
-  
+
   int bytesWritten = sendFrame(data);
   if (bytesWritten == -1) {
     reconnect();

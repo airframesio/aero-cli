@@ -250,9 +250,6 @@ MskDemodulator::~MskDemodulator() {
 }
 
 qint64 MskDemodulator::writeData(const char *data, qint64 len) {
-
-  bool sendscatterpoints = false;
-
   const short *ptr = reinterpret_cast<const short *>(data);
   for (int i = 0; i < (int)(len / sizeof(short)); i++) {
 
@@ -278,7 +275,6 @@ qint64 MskDemodulator::writeData(const char *data, qint64 len) {
         timer.start();
         emit OrgOverlapedBuffer(spectrumtmpbuff);
         emit PeakVolume(maxval);
-        sendscatterpoints = true;
       }
     }
 

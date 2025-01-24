@@ -119,37 +119,38 @@ void JFFT::fft(cpx_type *x, int size, fft_direction_t fft_direction) {
   else
     TWIDDLE = TWIDDLE_INV_mem.data();
 
-  // for the ifft an alternitive tick is given at
-  // http://www.embedded.com/design/configurable-systems/4210789/DSP-Tricks--Computing-inverse-FFTs-using-the-forward-FFT
-  // it would mean taking the conjugate of x before the forward fft is done then
-  // taking the conjugate after the fft is done this would be a good idea for
-  // memory limited devices
+  /*
+   for the ifft an alternitive tick is given at
+   http://www.embedded.com/design/configurable-systems/4210789/DSP-Tricks--Computing-inverse-FFTs-using-the-forward-FFT
+   it would mean taking the conjugate of x before the forward fft is done then
+   taking the conjugate after the fft is done this would be a good idea for
+   memory limited devices
 
-  // bit reversal. fast (lets say 2x as fast as the slow one)
-  // this does the bit reversal in an iterative way.
-  //  This is a bit hard to draw in ascii art
-  //    1 2 3 4
-  //     X   X
-  //    2 1 4 3
-  //     \ X /
-  //      X X
-  //      / X \
-    //   4 3 2 1
-  //
-  //  or maybe this is a better to describe the process
-  //
-  //   1 2   3 4   5 6   7 8
-  //    X     X     X     X
-  //   2 1   4 3   6 5   8 7
-  //
-  //   21 43   65 87
-  //     X       X
-  //   43 21   87 65
-  //
-  //   4321 8765
-  //       X
-  //   8765 4321
-  //
+   bit reversal. fast (lets say 2x as fast as the slow one)
+   this does the bit reversal in an iterative way.
+    This is a bit hard to draw in ascii art
+      1 2 3 4  
+       X   X     
+      2 1 4 3  
+       \ X /   
+        X X    
+        / X \  
+       4 3 2 1 
+  
+    or maybe this is a better to describe the process
+  
+     1 2   3 4   5 6   7 8
+      X     X     X     X
+     2 1   4 3   6 5   8 7
+  
+     21 43   65 87
+       X       X
+     43 21   87 65
+  
+     4321 8765
+         X
+     8765 4321
+  */
   for (uint32_t i = 0; i < ((uint32_t)nfft); ++i) {
 
     uint32_t y = i;

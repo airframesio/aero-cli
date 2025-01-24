@@ -1,6 +1,8 @@
 #include "aerol.h"
 #include <QtEndian>
 
+#define UNUSED(x) (void)x
+
 // R channel
 
 int RISUData::findisuitem(RISUItem &anisuitem) {
@@ -1317,6 +1319,8 @@ QByteArray &AeroL::Decode(QVector<short> &bits,
             int byte5 = ((uchar)rtchanneldeleavefecscram.infofield[-1 + 5]);
             int byte6 = ((uchar)rtchanneldeleavefecscram.infofield[-1 + 6]);
 
+            UNUSED(byte2);
+            
             uchar SEQINDICATOR = ((byte1 & 0xF0) >> 4);
             uchar SUTYPE = byte1 & 0x0F;
             quint32 AESID = byte3 << 8 * 2 | byte4 << 8 * 1 | byte5 << 8 * 0;
@@ -1357,6 +1361,8 @@ QByteArray &AeroL::Decode(QVector<short> &bits,
             if ((SUTYPE >= 1) && (SUTYPE <= 11))
               BytesInSU = SUTYPE;
 
+            UNUSED(BytesInSU);
+            
             decline += ((QString) " SU %1 of %2. AES: %3 GES: %4")
                            .arg(SUindex + 1)
                            .arg(SUTotal)

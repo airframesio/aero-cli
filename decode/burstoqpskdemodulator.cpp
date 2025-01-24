@@ -243,7 +243,7 @@ void BurstOqpskDemodulator::CenterFreqChangedSlot(
 }
 
 qint64 BurstOqpskDemodulator::writeData(const char *data, qint64 len) {
-  if (len < sizeof(short))
+  if ((quint64) len < sizeof(short))
     return len;
   if (channel_stereo)
     emit writeDataSignal(data, len);

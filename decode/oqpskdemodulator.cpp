@@ -287,8 +287,6 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
 
   double lastmse = mse;
 
-  bool sendscatterpoints = false;
-
   // prefilter start
   QVector<cpx_type> cval_prefiltered;
   if (fb == 8400) {
@@ -344,7 +342,6 @@ qint64 OqpskDemodulator::writeData(const char *data, qint64 len) {
     if ((!cpuReduce && timer.elapsed() > 150) ||
         (cpuReduce && fb == 8400 && timer.elapsed() > 150) ||
         (cpuReduce && fb > 8400 && timer.elapsed() > 1000)) {
-      sendscatterpoints = true;
       timer.start();
       emit OrgOverlapedBuffer(spectrumcycbuff);
       emit PeakVolume(maxval);
