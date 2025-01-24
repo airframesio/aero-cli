@@ -49,8 +49,10 @@ git clone https://github.com/airframesio/aero-cli.git
 cd aero-cli
 mkdir build && cd build
 cmake ..
-make
-make install
+```
+
+```
+make && make install
 ```
 
 ## Credits
