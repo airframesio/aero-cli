@@ -38,7 +38,6 @@ ForwardTarget::~ForwardTarget() {
 
 void ForwardTarget::reconnect() {
   addrinfo hints = {0};
-  addrinfo *servinfo = nullptr;
   addrinfo *p = nullptr;
 
   DBG("Attempting to connect to forwarder target %s", target.toString().toStdString().c_str());

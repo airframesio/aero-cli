@@ -1,5 +1,4 @@
 #include "output.h"
-#include "decode.h"
 #include <QByteArray>
 #include <QCoreApplication>
 #include <QJsonDocument>
