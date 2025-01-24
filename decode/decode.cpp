@@ -3,11 +3,71 @@
 #include <QJsonDocument>
 #include <QTcpSocket>
 #include <QUdpSocket>
+#include <libacars/acars.h>
+#include <libacars/libacars.h>
+#include <libacars/vstring.h>
 #include <zmq.h>
 
 #include "decode.h"
 #include "logger.h"
 #include "output.h"
+
+bool libacarsDecode(ACARSItem &item) {
+  QByteArray ba;
+  la_proto_node *node = nullptr;
+  la_vstring *vstr = nullptr;
+  la_msg_dir msg_dir = item.downlink ? LA_MSG_DIR_AIR2GND : LA_MSG_DIR_GND2AIR;
+  bool status = false;
+
+  if (item.message.isEmpty())
+    return false;
+
+  if (item.downlink) {
+    ba = item.message.mid(10).toLatin1();
+  } else {
+    // look for a sublabel and if found strip the sublabel(s) from the message
+    // before decoding
+    ba = item.message.toLatin1();
+    char sublabel[3];
+    char mfi[3];
+    int offset = ::la_acars_extract_sublabel_and_mfi(
+        item.LABEL.data(), msg_dir, ba.data(), strlen(ba.data()), sublabel,
+        mfi);
+
+    if (offset > 0) {
+      ba = "/" + item.message.right(item.message.length() - offset)
+                     .replace("- #" + QString(sublabel), "")
+                     .trimmed()
+                     .toLatin1();
+    } else {
+      ba = item.message.toLatin1();
+    }
+  }
+
+  if (ba.isEmpty())
+    return false;
+
+  node = ::la_acars_decode_apps(item.LABEL.data(), ba.data(), msg_dir);
+  if (node == nullptr)
+    goto exit;
+
+  vstr = ::la_proto_tree_format_json(nullptr, node);
+  if (vstr == nullptr)
+    goto exit;
+
+  item.parsed = QJsonDocument::fromJson(QString(vstr->str).toUtf8()).object();
+
+  ::la_vstring_destroy(vstr, true);
+
+  status = true;
+
+exit:
+  if (node != nullptr) {
+    ::la_proto_tree_destroy(node);
+  }
+
+  return status;
+}
 
 Decoder::Decoder(const QString &station_id, const QString &publisher,
                  const QString &topic, const QString &format, int bitRate,
@@ -65,7 +125,7 @@ Decoder::Decoder(const QString &station_id, const QString &publisher,
   burstMskSettings.Fs = 48000;
   burstMskSettings.fb = 1200;
   burstMskSettings.lockingbw = 10500;
-  
+
   burstMskDemod = new BurstMskDemodulator(this);
   burstMskDemod->setAFC(true);
   burstMskDemod->setCPUReduce(false);
@@ -338,6 +398,8 @@ void Decoder::forwarderConsumer() {
     sendBuffer.pop_front();
     sendBufferRwLock.unlock();
 
+    libacarsDecode(item);
+    
     for (auto target : forwarders) {
       if (target != nullptr) {
         QString *out = toOutputFormat(target->getFormat(), stationId,

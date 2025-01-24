@@ -4,6 +4,7 @@
 #include "jconvolutionalcodec.h"
 #include <QDateTime>
 #include <QDebug>
+#include <QJsonObject>
 #include <QList>
 #include <QObject>
 #include <QPointer>
@@ -176,6 +177,8 @@ public:
   bool hastext;
   bool moretocome;
   QString message;
+  QJsonObject parsed;
+  
   void clear() {
     isuitem.clear();
     valid = false;

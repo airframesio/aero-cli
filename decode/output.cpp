@@ -80,6 +80,13 @@ QString *toOutputFormat(OutputFormat fmt, const QString &station_id,
           } else {
             acars["msg_text"] = message;
           }
+
+          if (!item.parsed.isEmpty()) {
+            for (auto it = item.parsed.constBegin();
+                 it != item.parsed.constEnd(); it++) {
+              acars.insert(it.key(), it.value());
+            }
+          }
         }
 
         isu["acars"] = QJsonValue(acars);

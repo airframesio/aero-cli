@@ -11,8 +11,7 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 COMPONENTS Concurrent Core Multimedia Network)
 find_package(PkgConfig)
 
-find_path(ZeroMQ_INCLUDE_DIR NAMES zmq.h PATHS ${PC_ZeroMQ_INCLUDE_DIRS})
-find_library(ZeroMQ_LIBRARIES NAMES zmq PATHS ${PC_ZeroMQ_LIBRARY_DIRS})
+pkg_check_modules(ZeroMQ REQUIRED libzmq)
 
 set(COMMON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/common/)
 find_file(COMMON_NOTIFIER_SOURCE_FILE notifier.cpp ${COMMON_INCLUDE_DIR})

@@ -6,6 +6,7 @@ SignalHunter::SignalHunter(quint32 maxTries, QObject *parent)
   this->fullScans = 0;
   this->iterationsSinceSignal = 0;
   this->lastDcd = false;
+  this->enabled = true;
 }
 
 SignalHunter::~SignalHunter() {}
