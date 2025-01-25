@@ -26,7 +26,7 @@ aero-decode -v -p tcp://127.0.0.1:6004 -t VFO52 -b 10500 -f jsondump=tcp://127.0
 - [x] Implement translation of ACARSItem to JSON
 - [x] libacars integration
 - [ ] SBS forwarding
-- [ ] AMBE decoding?
+- [ ] Voice demodulation and storage (?)
 - [ ] Long term test to ensure processor and memory usage is within expectations
 
 ## Requirements
@@ -34,13 +34,14 @@ Other configurations not mentioned may work but below is the configuration used 
 * SoapySDR 0.8.1
 * ZeroMQ 4.3.5
 * libcorrect (commit f5a28c74fba7a99736fe49d3a5243eca29517ae9)
+* libacars 2.2.0
 * QT 6.4+ (Core, Concurrent, Multimedia)
 
-Unfortunately, the audio test harness requires Qt 5 in order to gain access to `monitor` audio inputs:
- * Python 3
- * PyQt5
- * PyQt5 QtMultimedia
- * PyZMQ
+Unfortunately, the audio test harness requires Qt 5.15 in order to gain access to `monitor` audio inputs:
+ * Python 3.12 (earlier versions may work as well)
+ * PyQt5 5.15.10
+ * PyQt5 5.15.10 QtMultimedia
+ * PyZMQ 24.0.1 (earlier versions may work as well)
 
 ## Compiling
 
