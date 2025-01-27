@@ -28,6 +28,7 @@ aero-decode -v -p tcp://127.0.0.1:6004 -t VFO52 -b 10500 -f jsondump=tcp://127.0
 - [ ] SBS forwarding
 - [ ] Voice demodulation and storage (?)
 - [ ] Long term test to ensure processor and memory usage is within expectations
+- [ ] Test to compare messages between JAERO and aero-decode to ensure we aren't losing any data
 
 ## Requirements
 Other configurations not mentioned may work but below is the configuration used for development and testing:
